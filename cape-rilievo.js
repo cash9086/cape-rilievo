@@ -37,12 +37,26 @@
    tag <script>, l'immagine segue. E' una scala di grigi: nero = superficie,
    bianco = fondo del solco.
 
-   DOVE NON GIRA
+   LE DUE PIANTE
+   -------------
+   Milano e Parigi non stanno nel Designer: le pianta qui dentro questo
+   file, appena la pagina e' montata. Sono due disegni vettoriali scritti
+   per esteso (contorni comunali veri, cerchie e acque disegnate) e non
+   due immagini: cosi' prendono il colore dal foglio di stile invece di
+   averlo cotto dentro, e cambiando --rilievo-ink cambiano anche loro.
+
+   Questo pezzo gira SEMPRE — anche su telefono, anche senza WebGL, anche
+   con le animazioni ridotte. E' l'unica parte del file che non si puo'
+   spegnere: senza, la sezione su un telefono resterebbe due scritte in
+   mezzo al grigio.
+
+   DOVE NON GIRA (solo la luce, non le piante)
    -------------
    Sotto i 992px, senza un puntatore vero, con "riduci animazioni" acceso o
-   senza WebGL: non parte proprio. La sezione resta quella che si vede nel
-   Designer — le due citta' con le coordinate e le due piante. Su un telefono
-   e' quello che deve succedere: senza mouse non c'e' nessuna luce da muovere.
+   senza WebGL il bassorilievo non parte. Restano le due citta' con le
+   coordinate e le due piante, che e' esattamente il disegno voluto: senza
+   mouse non c'e' nessuna luce da muovere, e un rilievo che non si puo'
+   scoprire e' solo peso scaricato per niente.
    ========================================================================== */
 (function(){
   'use strict';
@@ -69,15 +83,21 @@
   var sezione = document.querySelector('.cape-rilievo');
   if(!sezione) return;
 
-  /* La tela non sta nel Designer: se non c'e', se la fa da sola. Un div
-     vuoto in mezzo alla struttura e' una cosa che si cancella per sbaglio
-     e che nella tela del Designer non si capisce cosa sia; qui invece
-     nasce solo quando serve davvero, cioe' quando l'effetto parte. */
-  var tela = sezione.querySelector('.cape-rilievo-tela');
-  if(!tela){
-    tela = document.createElement('div');
-    tela.className = 'cape-rilievo-tela';
-    sezione.appendChild(tela);
+  /* ——— le due piante ——————————————————————————————————————————————
+     Vanno messe per prime nella sezione e prima di qualunque controllo:
+     sono l'unica cosa che deve esserci sempre. Se ci sono gia' (lo script
+     e' stato caricato due volte, oppure un domani le sposti in un Embed)
+     non si tocca niente. */
+
+  var MILANO = '<svg class="cape-rilievo-mappa is-milano" viewBox="0 0 1000 898" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><clipPath id="cr-milano"><path d="M580 2l12 6l30 44l28-4l19-8l71 4l20 30l50 21l100 10l8-5l16 20l24-2l1-4l5 39l9 22l27 9l-2 11l-17 9l-9-1l4-22l-17 0l-31 9l-2 20l8 131l-8 15l-2 30l26-2l23 24l2 36l-27 66l5 15l-1 81l-13 17l-67 51l-28 28l38 27l-49 33l-28 5l-32-2l-6-5l-22 14l-7 25l1 20l-8 16l-21-3l-7 3l-29 26l-3 11l-16 19l-18 7l-7-10l0-26l-4-1l-12 10l-21 1l-38-37l-18-33l-47 0l4-34l-7-25l-12-23l-43-12l-34 6l6 11l-19 7l-8-11l-3-29l-17-47l-22-46l-44-73l-19-9l-16 16l-18 2l-16-21l-35-14l-36 0l-7 9l10 76l-26 29l-15 1l-65-37l3-17l-4-15l-29-6l-11-19l22-12l1-8l-7-23l-5-11l-9-6l-9-27l1-6l11 0l120 29l14-77l-7-21l-40-54l-40-76l-12-43l28 3l29-4l8-5l13 2l35 49l24-7l9 4l11-29l29-23l0-13l-17-60l8-30l-11-31l26-20l1 5l-9 12l0 14l24 26l64 16l25-4l1-13l36-4l39 16l42 3l30-79l44-14l39 6l5-4z"/></clipPath></defs><path class="cape-rilievo-terra" d="M580 2l12 6l30 44l28-4l19-8l71 4l20 30l50 21l100 10l8-5l16 20l24-2l1-4l5 39l9 22l27 9l-2 11l-17 9l-9-1l4-22l-17 0l-31 9l-2 20l8 131l-8 15l-2 30l26-2l23 24l2 36l-27 66l5 15l-1 81l-13 17l-67 51l-28 28l38 27l-49 33l-28 5l-32-2l-6-5l-22 14l-7 25l1 20l-8 16l-21-3l-7 3l-29 26l-3 11l-16 19l-18 7l-7-10l0-26l-4-1l-12 10l-21 1l-38-37l-18-33l-47 0l4-34l-7-25l-12-23l-43-12l-34 6l6 11l-19 7l-8-11l-3-29l-17-47l-22-46l-44-73l-19-9l-16 16l-18 2l-16-21l-35-14l-36 0l-7 9l10 76l-26 29l-15 1l-65-37l3-17l-4-15l-29-6l-11-19l22-12l1-8l-7-23l-5-11l-9-6l-9-27l1-6l11 0l120 29l14-77l-7-21l-40-54l-40-76l-12-43l28 3l29-4l8-5l13 2l35 49l24-7l9 4l11-29l29-23l0-13l-17-60l8-30l-11-31l26-20l1 5l-9 12l0 14l24 26l64 16l25-4l1-13l36-4l39 16l42 3l30-79l44-14l39 6l5-4z"/><g clip-path="url(#cr-milano)"><path class="cape-rilievo-vie" stroke-width="2.2" d="M675 426l0-4l-1-4l-1-5l-1-4l-2-3l-2-4l-3-4l-3-3l-3-3l-3-3l-4-2l-4-3l-4-2l-4-1l-5-1l-4-1l-5-1l-4 0l-5 0l-5 1l-4 1l-5 1l-4 1l-4 2l-4 3l-4 2l-3 3l-3 3l-3 3l-3 4l-2 4l-2 3l-1 4l-1 5l-1 4l0 4l0 4l1 4l1 4l1 4l2 4l2 4l3 3l3 4l3 3l3 3l4 2l4 2l4 2l4 2l5 1l4 1l5 1l5 0l4 0l5-1l4-1l5-1l4-2l4-2l4-2l4-2l3-3l3-3l3-4l3-3l2-4l2-4l1-4l1-4l1-4l0-4zM730 413l0-9l-2-8l-2-8l-2-8l-4-8l-4-7l-5-7l-6-7l-6-6l-7-5l-7-5l-8-5l-8-4l-9-3l-9-2l-9-2l-9-1l-9-1l-10 1l-9 1l-9 2l-9 2l-8 3l-8 4l-8 5l-8 5l-6 5l-7 6l-5 7l-5 7l-5 7l-3 8l-3 8l-2 8l-1 8l-1 9l1 8l1 8l2 8l3 8l3 8l5 7l5 7l5 7l7 6l6 6l8 5l8 4l8 4l8 3l9 3l9 2l9 1l10 0l9 0l9-1l9-2l9-3l9-3l8-4l8-4l7-5l7-6l6-6l6-7l5-7l4-7l4-8l2-8l2-8l2-8l0-8zM816 402l0-14l-2-15l-4-14l-5-13l-6-13l-8-13l-9-12l-10-11l-11-11l-13-9l-13-9l-14-8l-15-6l-15-6l-16-4l-16-3l-17-2l-16-1l-17 1l-16 2l-17 3l-15 4l-16 6l-15 6l-14 8l-13 9l-12 9l-11 11l-10 11l-9 12l-8 13l-6 13l-5 13l-4 14l-2 15l-1 14l1 14l2 14l4 14l5 14l6 13l8 13l9 12l10 11l11 10l12 10l13 9l14 7l15 7l16 5l15 5l17 3l16 2l17 0l16 0l17-2l16-3l16-5l15-5l15-7l14-7l13-9l13-10l11-10l10-11l9-12l8-13l6-13l5-14l4-14l2-14l0-14zM626 431l102-480M626 431l250-357M626 431l385-205M626 431l429 75M626 431l280 334M626 431l68 485M626 431l-480 102M626 431l-410-149M626 431l-347-347M626 431l-168-461M626 431l426-91M626 431l377 218M626 431l184 395M626 431l-436-16M626 431l-370-231M626 431l-260-416M626 431l199-448M626 431l324-292"/><path class="cape-rilievo-acque" stroke-width="3.4" d="M561 504l-20 7l-26 11l-27 15l-32 15l-39 15l-42 15l-43 22l-34 18M561 504l-2 24l-3 36l-10 49l-11 54l-10 60l-6 60l-4 55M847 16l13 139l29 120l18 121l17 120l-35 121M320 95l29 120l22 121l12 120l39 102"/></g></svg>';
+
+  var PARIGI = '<svg class="cape-rilievo-mappa is-parigi" viewBox="0 0 1000 529" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs><clipPath id="cr-parigi"><path d="M828 372l39 4l4-23l11 1l0-9l24 1l5 6l59 14l12 8l18 28l-3 17l-13 13l-5 25l5 9l-3 13l-16 35l-9 7l-23 1l-14-5l-50-2l0-5l-11-4l-23-24l-12-3l-26 0l-14-4l-22-1l-14-9l-11-13l-10-6l-35 13l-50 30l-3 5l-73 34l-26 1l-17-16l-21 15l-62-5l2-8l-164-55l-54-33l-25 29l-22 0l-1-23l12-9l-12-10l-18 5l-31-6l-14-24l-2-26l5-15l-7-1l-34-13l-13-14l-61-22l1-18l15-54l15-23l38-21l18-25l38 15l2-1l13-38l77 15l10-4l4-26l19-23l24-18l15-2l52-38l43-22l9-8l263-7l21 6l18 16l11 24l6 55l5 11l16 15l22 8l12 25l6 32l-1 48l11 84l-3 25l-14 66l5 5l16-3l19-10l-10-35l1-12l8-6l11 16l12 2z"/></clipPath></defs><path class="cape-rilievo-terra" d="M828 372l39 4l4-23l11 1l0-9l24 1l5 6l59 14l12 8l18 28l-3 17l-13 13l-5 25l5 9l-3 13l-16 35l-9 7l-23 1l-14-5l-50-2l0-5l-11-4l-23-24l-12-3l-26 0l-14-4l-22-1l-14-9l-11-13l-10-6l-35 13l-50 30l-3 5l-73 34l-26 1l-17-16l-21 15l-62-5l2-8l-164-55l-54-33l-25 29l-22 0l-1-23l12-9l-12-10l-18 5l-31-6l-14-24l-2-26l5-15l-7-1l-34-13l-13-14l-61-22l1-18l15-54l15-23l38-21l18-25l38 15l2-1l13-38l77 15l10-4l4-26l19-23l24-18l15-2l52-38l43-22l9-8l263-7l21 6l18 16l11 24l6 55l5 11l16 15l22 8l12 25l6 32l-1 48l11 84l-3 25l-14 66l5 5l16-3l19-10l-10-35l1-12l8-6l11 16l12 2z"/><g clip-path="url(#cr-parigi)"><path class="cape-rilievo-vie" stroke-width="2.2" d="M288 173l0-69M288 173l35-60M288 173l61-34M288 173l70 0M288 173l61 35M288 173l35 61M288 173l0 70M288 173l-34 61M288 173l-60 35M288 173l-69 0M288 173l-60-34M288 173l-34-60M699 330l11-61M699 330l54-30M699 330l56 23M699 330l16 59M699 330l-36 49M699 330l-61 3M699 330l-41-46M569 212l18-49M569 212l52-9M569 212l34 41M569 212l-18 50M569 212l-52 9M569 212l-34-40M590 300l30-43M590 300l53 5M590 300l22 48M590 300l-30 43M590 300l-52-4M590 300l-22-48M441 419l14-54M441 419l53-15M441 419l39 39M441 419l-15 54M441 419l-54 14M441 419l-40-40M535 435l23-50M535 435l54-13M535 435l44 35M535 435l0 56M535 435l-43 36M535 435l-55-11M535 435l-25-49M288 173l49 24l58 27M395 224l32 16l35 15M462 255l50 16l45 9M396 249l35 28l41 21l49 14l32 2M492 80l37 37l-8 80l-21 74l-16 43l-45 104M439 197l45-8l45 14l40 9M288 173l61-1l70 6l53 13M569 212l37 59l-16 29M419 80l24 37l29 43l49 37M382 369l20-37l29-49M415 117l69 18l53 16l57 9M341 344l61 19l70 18l65 10l65-10M288 154l-28 43l-8 49M699 330l-32-47l-20-55l16-31M535 435l-31-41l-12-50l29-36M441 419l-26-38l-13-49"/><path class="cape-rilievo-acque" stroke-width="4.5" d="M783 424l-75-13l-51-16l-67-26l-33-28l-16-24l-20-19l-25-15l-24-9l-27-11l-31-12l-28-15l-37-8l-40 8l-29 19l-28 28l-25 31l-24 37l-8 30l-25 24M602 49l-24 68l-13 80l17 43l8 61"/></g></svg>';
+
+  if(!sezione.querySelector('.cape-rilievo-mappa')){
+    var culla = document.createElement('div');
+    culla.innerHTML = MILANO + PARIGI;
+    var primo = sezione.firstChild;
+    while(culla.firstChild) sezione.insertBefore(culla.firstChild, primo);
   }
 
   function puoi(){
@@ -89,6 +109,18 @@
     return true;
   }
   if(!puoi()) return;
+
+  /* La tela non sta nel Designer: se non c'e', se la fa da sola. Un div
+     vuoto in mezzo alla struttura e' una cosa che si cancella per sbaglio
+     e che nella tela del Designer non si capisce cosa sia; qui invece
+     nasce solo quando serve davvero, cioe' quando l'effetto parte. */
+  var tela = sezione.querySelector('.cape-rilievo-tela');
+  if(!tela){
+    tela = document.createElement('div');
+    tela.className = 'cape-rilievo-tela';
+    sezione.appendChild(tela);
+  }
+
 
   /* L'indirizzo della mappa: accanto a questo file, stesso commit. */
   var base = RIPIEGO;
@@ -277,6 +309,8 @@
   }, { passive:true });
 
   window.capePatti && capePatti.dichiara('rilievo delle citta', {
-    leggo: [['.cape-rilievo-tela', '.cape-rilievo-tela', 'la tela in cui il bassorilievo viene disegnato']]
+    scrivo: [['.cape-rilievo-mappa', '.cape-rilievo', 'le piante di Milano e Parigi, piantate dal codice'],
+             ['.cape-rilievo-tela',  '.cape-rilievo', 'la tela in cui il bassorilievo viene disegnato']],
+    leggo:  [['cape-rilievo', '.cape-rilievo', 'la sezione: senza di lei il file non fa niente']]
   });
 })();

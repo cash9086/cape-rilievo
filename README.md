@@ -5,13 +5,20 @@ nomi di Milano e Parigi agli angoli con le loro coordinate, le piante delle
 due citta' che entrano tagliate dai bordi, e in mezzo un bassorilievo che
 non si vede — finche' non ci passi sopra col mouse.
 
+Nel Designer di Webflow stanno solo la sezione e le due citta'. Le piante e
+la tela del rilievo le mette questo file. Attenzione alla differenza: **le
+piante vengono piantate sempre**, anche su un telefono e anche senza WebGL,
+mentre la luce parte solo da 992px in su e con un puntatore vero. Se un
+domani si spostasse il controllo delle condizioni prima delle piante, su
+telefono resterebbero due scritte in mezzo al grigio.
+
 ## Cosa c'e' dentro
 
 | file | cos'e' |
 |---|---|
 | `cape-rilievo.js` | il motore: una passata di WebGL che illumina la superficie incisa |
 | `superficie.png` | la mappa delle profondita' del surfista: nero = superficie, bianco = fondo del solco |
-| `milano.svg` `parigi.svg` | le due piante, copia di quelle incollate nell'Embed di Webflow |
+| `milano.svg` `parigi.svg` | le due piante in chiaro: dentro `cape-rilievo.js` ci sono queste, riga per riga |
 
 ## Come e' agganciato
 
