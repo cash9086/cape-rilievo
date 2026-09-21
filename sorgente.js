@@ -65,7 +65,9 @@
   /* ----- le manopole del rilievo ---------------------------------------
      Sono tutte qui. Il resto del file non ha numeri suoi.                */
 
-  var FORZA     = 6.0;   /* quanto sono ripide le pareti del solco        */
+  var FORZA     = 10.0;  /* quanto sono ripide le pareti del solco        */
+  var MASSA     = 1.15;  /* quanto si alza il corpo della figura: e' questo
+                            che la fa scolpita invece che incisa          */
   var DIFFUSA   = 0.30;  /* quanto scurisce la luce radente               */
   var LUCIDA    = 0.20;  /* il riflesso: quanto e' lucido il gesso        */
   var DUREZZA   = 28.0;  /* quanto e' stretto quel riflesso               */
@@ -77,7 +79,7 @@
 
   /* ----- le manopole delle due luci automatiche ------------------------ */
 
-  var AUTO_FORZA = 0.28; /* quanto valgono rispetto al puntatore. Basso
+  var AUTO_FORZA = 0.15; /* quanto valgono rispetto al puntatore. Bassissimo
                             apposta: devono far capire che li' sotto c'e'
                             qualcosa, non mostrare il disegno             */
   var AUTO_GIRO  = 16.0; /* secondi per un giro intero                    */
@@ -334,8 +336,6 @@
     else { dipingendo = true; t_disegno = 0; requestAnimationFrame(passo_disegno); }
   }
 
-  function nascondi(){ sezione.classList.remove('is-dentro'); }
-
 
   var rM = null;
   window.addEventListener('resize', function(){
@@ -372,12 +372,25 @@
   function controllaAggancio(){
     inCoda = false;
     var r = sezione.getBoundingClientRect();
-    var ora = (r.top <= 0 && r.bottom > window.innerHeight * 0.5);
-    if(ora === incollata) return;
-    incollata = ora;
-    sezione.classList.toggle('is-incollata', ora);
-    if(ora){ mostra(); if(motore) motore.sveglia(); }
-    else   { nascondi(); if(motore) motore.spegni(); }
+
+    /* Visibile da quando il bordo alto del binario supera il bordo alto
+       dello schermo, e poi PER SEMPRE finche' non si risale sopra. Non
+       "finche' e' incollata": scorrendo in giu' il pannello si sgancia e
+       se ne va su insieme alla pagina, e deve andarsene scorrendo, non
+       sparire di colpo. */
+    var ora = (r.top <= 0);
+    if(ora !== incollata){
+      incollata = ora;
+      sezione.classList.toggle('is-incollata', ora);
+      if(ora) mostra();
+    }
+
+    /* Il rilievo invece costa, e gira solo mentre la sezione si vede. */
+    var suSchermo = ora && r.bottom > 0 && r.top < window.innerHeight;
+    if(motore){
+      if(suSchermo) motore.sveglia();
+      else motore.spegni();
+    }
   }
 
   function guarda(){
@@ -422,8 +435,8 @@
 
   var FRAG =
     'precision highp float;varying vec2 uv;uniform sampler2D mappa;' +
-    'uniform vec2 texel;uniform vec3 luceA,luceB,luceC;' +
-    'uniform float aspetto,forza,diffusa,lucida,durezza,altezza,raggio,fondo;' +
+    'uniform vec2 texel;uniform vec3 luceA,luceB,luceC;uniform sampler2D gobba;' +
+    'uniform float aspetto,forza,massa,diffusa,lucida,durezza,altezza,raggio,fondo;' +
     /* Tre uniform separate e non un array di tre: un array di vec3 si
        carica in un colpo solo, ma va indicizzato nello shader e alcuni
        driver lo trattano male. Qui non c'e' niente da interpretare. */
@@ -443,7 +456,11 @@
       'float hd=texture2D(mappa,uv+vec2(texel.x,0.0)).r;' +
       'float hg=texture2D(mappa,uv-vec2(0.0,texel.y)).r;' +
       'float ha=texture2D(mappa,uv+vec2(0.0,texel.y)).r;' +
-      'vec3 n=normalize(vec3((hd-hs)*forza,(hg-ha)*forza,1.0));' +
+      /* la pendenza e' la somma di due cose: il solco, che si ricava dalle
+         quattro letture qui sopra, e la gobba, che nel suo file e' GIA'
+         derivata e quindi si legge e basta */
+      'vec2 g=(texture2D(gobba,uv).rg*2.0-1.0)*massa;' +
+      'vec3 n=normalize(vec3((hd-hs)*forza+g.x,(hg-ha)*forza+g.y,1.0));' +
       'vec2 pos=vec2(uv.x,(1.0-uv.y)*aspetto);' +
       'float d=luce(n,pos,luceA)+luce(n,pos,luceB)+luce(n,pos,luceC);' +
       'float su=step(0.0,d);' +
@@ -477,7 +494,7 @@
   gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 0, 0);
 
   var U = {};
-  ['mappa','texel','aspetto','forza','diffusa','lucida','durezza','altezza','raggio','fondo',
+  ['mappa','gobba','texel','aspetto','forza','massa','diffusa','lucida','durezza','altezza','raggio','fondo',
    'luceA','luceB','luceC']
     .forEach(function(n){ U[n] = gl.getUniformLocation(prog, n); });
 
@@ -485,6 +502,7 @@
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   gl.clearColor(0,0,0,0);
   gl.uniform1f(U.forza, FORZA);
+  gl.uniform1f(U.massa, MASSA);
   gl.uniform1f(U.diffusa, DIFFUSA);
   gl.uniform1f(U.lucida, LUCIDA);
   gl.uniform1f(U.durezza, DUREZZA);
@@ -492,26 +510,50 @@
   gl.uniform1f(U.raggio, RAGGIO);
   gl.uniform1f(U.fondo, FONDO);
 
-  var pronta = false, aspetto = 0.65;
-  var img = new Image();
-  img.crossOrigin = 'anonymous';
-  img.onload = function(){
+  var pronta = false, aspetto = 0.65, caricate = 0;
+
+  function texture(unita, img, filtro){
     var t = gl.createTexture();
+    gl.activeTexture(gl.TEXTURE0 + unita);
     gl.bindTexture(gl.TEXTURE_2D, t);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filtro);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filtro);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.uniform1i(U.mappa, 0);
-    gl.uniform2f(U.texel, 1 / img.naturalWidth, 1 / img.naturalHeight);
+  }
+
+  /* Due file: il solco, grande perche' ha dettaglio fine, e la gobba, che
+     e' un quarto di lato perche' e' gia' derivata — un campo che nessuno
+     deve piu' derivare si puo' tenere piccolo senza perdere niente. */
+  function arrivata(){
+    if(++caricate < 2) return;
     pronta = true;
     tela.appendChild(cv);
     misura();
     sveglia();
+  }
+
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.onload = function(){
+    texture(0, img, gl.LINEAR);
+    gl.uniform1i(U.mappa, 0);
+    gl.uniform2f(U.texel, 1 / img.naturalWidth, 1 / img.naturalHeight);
+    arrivata();
   };
-  img.src = base + 'superficie.png';
+
+  var img2 = new Image();
+  img2.crossOrigin = 'anonymous';
+  img2.onload = function(){
+    texture(1, img2, gl.LINEAR);
+    gl.uniform1i(U.gobba, 1);
+    arrivata();
+  };
+
+  img.src  = base + 'superficie.png';
+  img2.src = base + 'gobba.png';
 
   var largo = 0, alto = 0;
 

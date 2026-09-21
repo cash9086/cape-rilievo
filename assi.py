@@ -12,7 +12,7 @@ from skimage.morphology import skeletonize
 LATO_OUT = 1000
 FASCE = 22
 
-def scheletro(png, soglia=128):
+def scheletro(png, soglia=190):
     a = np.asarray(Image.open(png).convert('L'))
     b = a < soglia
     return skeletonize(b), b
@@ -97,7 +97,7 @@ def d_attr(pts):
         px,py=x,y
     return ''.join(out).replace(' -','-')
 
-def lavora(nome, eps=1.1, min_lung=6):
+def lavora(nome, eps=0.9, min_lung=3.0):
     sk, pieno = scheletro(nome+'_raster.png')
     dist = calibri(pieno)
     vie = polilinee(sk)
@@ -139,5 +139,7 @@ def lavora(nome, eps=1.1, min_lung=6):
     print('%-7s strade %5d  (v %d  a %d  p %d)  calibri %.1f/%.1f  dato %6d car'%(
         nome, tot, len(gruppi['v']), len(gruppi['a']), len(gruppi['p']), q1, q2, len(dato)))
 
-lavora('milano')
-lavora('parigi')
+# Milano viene da un disegno piu' rado del parigino: tiene anche i
+# frammenti corti, altrimenti resta magra.
+lavora('milano', eps=0.7, min_lung=1.6)
+lavora('parigi', eps=0.95, min_lung=3.4)

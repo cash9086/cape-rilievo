@@ -14,11 +14,12 @@ resto e' qui.
 |---|---|
 | `cape-rilievo.js` | quello che va in pagina: motore + il dato delle due piante dentro |
 | `sorgente.js` | lo stesso file senza le piante (`__MILANO__`, `__PARIGI__`): e' qui che si lavora |
-| `superficie.png` | la mappa delle profondita' del surfista: nero = superficie, bianco = fondo del solco |
+| `superficie.png` | il SOLCO del surfista: quota delle linee incise |
+| `gobba.png` | il VOLUME: la pendenza della gobba, gia' derivata |
+| `superficie.py` | rigenera tutti e due dal disegno a tratto |
 | `milano.js.txt` `parigi.js.txt` | il dato delle piante: `[classe, fascia, percorso]` |
 | `milano.svg` `parigi.svg` | le stesse piante come SVG, solo per guardarle |
 | `rasterizza.py` + `assi.py` | **la catena vera**: da un SVG di mappa alle strade tracciabili |
-| `citta.py` | il vecchio generatore di piante inventate, non piu' usato |
 
 ## Da una mappa nuova alle strade
 
@@ -67,13 +68,33 @@ bordi opposti. Servono perche' senza, chi arriva sulla sezione vede un
 rettangolo vuoto e tira dritto. Si spengono appena il mouse arriva sopra il
 disegno e tornano appena se ne va.
 
+## Il bassorilievo: solco e gobba
+
+Il rilievo e' fatto di due cose che si sommano:
+
+- **il solco** (`superficie.png`): le linee del disegno, incise. Ha
+  dettaglio fine, quindi il file e' grande;
+- **la gobba** (`gobba.png`): il corpo della figura che si alza dal fondo.
+  E' quello che la fa sembrare scolpita invece che incisa.
+
+La gobba **non e' salvata come quota ma come pendenza, gia' derivata**, e
+non e' un vezzo: e' un campo larghissimo e liscio, a otto bit i suoi
+gradini valgono un duecentocinquantesimo — invisibili sull'altezza, ma la
+luce guarda la pendenza, e la pendenza di una scala e' una fila di
+scalini. Sullo schermo venivano anelli concentrici attorno alla figura.
+Derivandola in virgola mobile prima di salvarla, il problema sparisce; e
+siccome nessuno la deve piu' derivare, sta a un quarto di lato e pesa
+venti volte meno.
+
 ## Le manopole
 
-In cima a `sorgente.js`, una per riga. Le due che si toccano davvero:
+In cima a `sorgente.js`, una per riga. Quelle che si toccano davvero:
 
-- `RAGGIO` — fin dove arriva la luce. Piu' piccolo, piu' il disegno si
-  scopre un pezzo per volta;
-- `DIFFUSA` e `LUCIDA` — quanto e' marcato il rilievo.
+- `MASSA` — quanto si alza il corpo della figura (il 3D);
+- `FORZA` — quanto sono ripide le pareti del solco;
+- `RAGGIO` — fin dove arriva la luce;
+- `DIFFUSA` e `LUCIDA` — quanto e' marcato il rilievo;
+- `AUTO_FORZA` — quanto contano le due luci che girano da sole.
 
 `FONDO` e' il colore della sezione: **1.0 = bianco**, 0.957 se un domani
 torna il grigio #f4f4f4. Non e' un dettaglio estetico, e' il conto che
@@ -104,11 +125,6 @@ pezzo nuovo e il costo non dipende piu' da quanto e' grande la mappa.
 Il bordo non e' tagliato: una maschera radiale le spegne verso fuori, e
 Parigi sborda apposta sotto il pannello e va a finire sulla sezione dopo,
 dissolvendosi.
-
-**Parigi e' da rifare.** L'SVG caricato per Parigi non contiene strade: e'
-la vettorializzazione della mappa a ISOLATI, e il tracciato ha tenuto solo
-la Senna e l'anello del peripherique. Serve la Parigi della stessa serie di
-Milano — quella bianca con le strade nere — e poi e' un comando.
 
 **I due .avif** in questa repo sono le anteprime con filigrana da cui sono
 stati ricavati gli SVG: non sono usate da niente e non vanno pubblicate.
