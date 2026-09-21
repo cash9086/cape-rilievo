@@ -17,7 +17,29 @@ resto e' qui.
 | `superficie.png` | la mappa delle profondita' del surfista: nero = superficie, bianco = fondo del solco |
 | `milano.js.txt` `parigi.js.txt` | il dato delle piante: `[classe, fascia, percorso]` |
 | `milano.svg` `parigi.svg` | le stesse piante come SVG, solo per guardarle |
-| `citta.py` | le rigenera tutte e due |
+| `rasterizza.py` + `assi.py` | **la catena vera**: da un SVG di mappa alle strade tracciabili |
+| `citta.py` | il vecchio generatore di piante inventate, non piu' usato |
+
+## Da una mappa nuova alle strade
+
+Le piante vengono dai due SVG caricati nella repo. Sono forme PIENE (ogni
+strada e' un poligono sottile), e una forma piena non si puo' tracciare: si
+riduce prima all'asse.
+
+```
+python3 rasterizza.py   # rende i due SVG a 1800px
+python3 assi.py         # scheletro -> strade -> .js.txt
+```
+
+`assi.py` assottiglia la forma fino alla linea di mezzo, incatena i pixel in
+strade continue, misura il calibro di ognuna con una trasformata di distanza
+(e' cosi' che escono le tre classi: vie, assi, principali) e le ordina per
+distanza dal centro in ventidue fasce. Quelle fasce sono l'ordine con cui la
+pagina le disegnera'.
+
+**Per cambiare una citta'**: carica il nuovo SVG, aggiungilo a `FILE` in
+`rasterizza.py`, rigenera, e sostituisci `__MILANO__` / `__PARIGI__` in
+`sorgente.js` col contenuto dei `.js.txt`.
 
 **Per rigenerare il file in pagina** dopo aver toccato `sorgente.js` o le
 piante: sostituisci `__MILANO__` e `__PARIGI__` col contenuto dei due
@@ -60,6 +82,18 @@ quindi le luci non possono schiarire e restano solo le ombre. E' per
 questo che `DIFFUSA` e `LUCIDA` qui sono piu' alte che su un grigio: meta'
 dell'effetto non e' disponibile e va recuperata sull'altra meta'.
 
+## Il montaggio
+
+La sezione non arriva scorrendo: e' un binario alto due schermate e mezzo
+con dentro un pannello alto uno schermo che si INCOLLA. Il binario parte
+56vh prima della fine della sezione dei pixel, cioe' dentro al suo bianco
+finale (quella resta bianca e ferma dall'88% del suo binario in poi, che
+sono i suoi ultimi 60vh). Il pannello resta invisibile finche' non si
+incolla davvero, e nell'istante in cui si incolla sotto c'e' bianco pieno e
+lui e' bianco uguale: il passaggio non si vede, e le mappe si disegnano li'.
+
+Le due misure stanno nel CSS: `--rilievo-anticipo` e `--rilievo-sosta`.
+
 ## Le piante
 
 Sono dipinte su tela, non disegnate nella pagina. Il perche' e' scritto in
@@ -67,16 +101,14 @@ cima a `sorgente.js`: animare qualche migliaio di strade in SVG portava la
 pagina da 16 a 166 millisecondi per fotogramma. Su tela si dipinge solo il
 pezzo nuovo e il costo non dipende piu' da quanto e' grande la mappa.
 
-**Le strade sono disegnate, non rilevate.** Milano e' radiocentrica per
-costruzione (cerchie e radiali, con i Navigli, il Lambro e l'Olona al
-posto giusto), Parigi e' un mosaico di quartieri ognuno con la sua
-orientazione, piu' la Senna, il canale Saint-Martin, i boulevard e le
-piazze a stella. Verso il bordo le strade si diradano fino a sparire: la
-mappa si dissolve invece di finire con un taglio.
+Il bordo non e' tagliato: una maschera radiale le spegne verso fuori, e
+Parigi sborda apposta sotto il pannello e va a finire sulla sezione dopo,
+dissolvendosi.
 
-Non e' cartografia: serve a far leggere "citta'", non a dire dove si gira
-a destra. Per avere le strade vere servirebbero dati OpenStreetMap, che da
-qui non sono raggiungibili.
+**Parigi e' da rifare.** L'SVG caricato per Parigi non contiene strade: e'
+la vettorializzazione della mappa a ISOLATI, e il tracciato ha tenuto solo
+la Senna e l'anello del peripherique. Serve la Parigi della stessa serie di
+Milano — quella bianca con le strade nere — e poi e' un comando.
 
-**I due .avif** in questa repo sono le anteprime con filigrana da cui e'
-partita la richiesta: non sono usate da niente e non vanno pubblicate.
+**I due .avif** in questa repo sono le anteprime con filigrana da cui sono
+stati ricavati gli SVG: non sono usate da niente e non vanno pubblicate.

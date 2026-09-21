@@ -77,7 +77,9 @@
 
   /* ----- le manopole delle due luci automatiche ------------------------ */
 
-  var AUTO_FORZA = 1.0;  /* quanto valgono rispetto al puntatore          */
+  var AUTO_FORZA = 0.28; /* quanto valgono rispetto al puntatore. Basso
+                            apposta: devono far capire che li' sotto c'e'
+                            qualcosa, non mostrare il disegno             */
   var AUTO_GIRO  = 16.0; /* secondi per un giro intero                    */
   var AUTO_RAGGI = 0.46; /* quanto largo girano: piu' stretto = passano
                             piu' vicino al disegno e si vede di piu'      */
@@ -90,6 +92,19 @@
 
   var sezione = document.querySelector('.cape-rilievo');
   if(!sezione) return;
+
+  /* ——— il pannello incollato ———
+     La sezione e' un binario alto due schermate e mezzo; quello che si vede
+     e' un pannello alto uno schermo che resta fermo mentre la pagina scorre.
+     Il pannello lo crea questo file e ci sposta dentro quello che c'era: nel
+     Designer non cambia niente, restano la sezione e le due citta'. */
+  var pannello = sezione.querySelector('.cape-rilievo-stick');
+  if(!pannello){
+    pannello = document.createElement('div');
+    pannello.className = 'cape-rilievo-stick';
+    while(sezione.firstChild) pannello.appendChild(sezione.firstChild);
+    sezione.appendChild(pannello);
+  }
 
   var ridotto = false;
   try{ ridotto = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
@@ -257,10 +272,10 @@
   }catch(e){}
 
   var piante = [];
-  if(!sezione.querySelector('.cape-rilievo-mappa')){
+  if(!pannello.querySelector('.cape-rilievo-mappa')){
     piante = [pianta('milano'), pianta('parigi')];
-    var primo = sezione.firstChild;
-    for(var q = 0; q < piante.length; q++) sezione.insertBefore(piante[q].nodo, primo);
+    var primo = pannello.firstChild;
+    for(var q = 0; q < piante.length; q++) pannello.insertBefore(piante[q].nodo, primo);
   }
 
   /* ══ 2. il disegno ═════════════════════════════════════════════════════
@@ -321,6 +336,7 @@
 
   function nascondi(){ sezione.classList.remove('is-dentro'); }
 
+
   var rM = null;
   window.addEventListener('resize', function(){
     clearTimeout(rM);
@@ -340,28 +356,49 @@
     return true;
   }
 
-  var acceso = 0, mira = 0, vivo = false, girando = false, sporco = true;
+  var acceso = 0, mira = 0, vivo = true, girando = false, sporco = true;
   var motore = null;
 
+  /* ——— quando comincia ———
+     Non appena la sezione entra nello schermo: allora il pannello starebbe
+     ancora salendo dal basso, e il disegno partirebbe mentre la sezione
+     arriva. Comincia quando il pannello SI INCOLLA, cioe' quando il bordo
+     alto del binario tocca il bordo alto dello schermo. In quell'istante
+     sotto c'e' il bianco pieno della sezione dei pixel: la sezione non
+     arriva, e' gia' li', e le mappe si disegnano sopra quel bianco. */
+
+  var incollata = false, inCoda = false;
+
+  function controllaAggancio(){
+    inCoda = false;
+    var r = sezione.getBoundingClientRect();
+    var ora = (r.top <= 0 && r.bottom > window.innerHeight * 0.5);
+    if(ora === incollata) return;
+    incollata = ora;
+    sezione.classList.toggle('is-incollata', ora);
+    if(ora){ mostra(); if(motore) motore.sveglia(); }
+    else   { nascondi(); if(motore) motore.spegni(); }
+  }
+
   function guarda(){
-    try{
-      new IntersectionObserver(function(es){
-        vivo = es[0].isIntersecting;
-        if(vivo){ mostra(); if(motore) motore.sveglia(); }
-        else { nascondi(); if(motore) motore.spegni(); }
-      }, { rootMargin: '0px', threshold: 0.12 }).observe(sezione);
-    }catch(e){ vivo = true; mostra(); }
+    window.addEventListener('scroll', function(){
+      if(inCoda) return;
+      inCoda = true;
+      requestAnimationFrame(controllaAggancio);
+    }, { passive:true });
+    window.addEventListener('resize', function(){ requestAnimationFrame(controllaAggancio); }, { passive:true });
+    controllaAggancio();
   }
 
   if(!puoi()){ guarda(); return; }
 
   /* la tela non sta nel Designer: nasce qui, e solo adesso, cioe' solo
      quando l'effetto parte davvero */
-  var tela = sezione.querySelector('.cape-rilievo-tela');
+  var tela = pannello.querySelector('.cape-rilievo-tela');
   if(!tela){
     tela = document.createElement('div');
     tela.className = 'cape-rilievo-tela';
-    sezione.appendChild(tela);
+    pannello.appendChild(tela);
   }
 
   var base = RIPIEGO;
@@ -565,7 +602,7 @@
     spegni:  function(){ mira = 0; dentroMouse = false; }
   };
 
-  sezione.addEventListener('pointermove', function(e){
+  pannello.addEventListener('pointermove', function(e){
     var r = tela.getBoundingClientRect();
     if(!r.width) return;
     lx = (e.clientX - r.left) / r.width;
@@ -579,7 +616,7 @@
     sveglia();
   }, { passive:true });
 
-  sezione.addEventListener('pointerleave', function(){ dentroMouse = false; }, { passive:true });
+  pannello.addEventListener('pointerleave', function(){ dentroMouse = false; }, { passive:true });
   window.addEventListener('blur', function(){ dentroMouse = false; });
 
   var rT = null;
