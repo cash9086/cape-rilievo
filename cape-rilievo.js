@@ -213,7 +213,10 @@
     m.stile = function(f){
       var t = TRATTI[f.classe] || TRATTI.v;
       this.ctx.lineWidth = t[0];
-      this.ctx.globalAlpha = t[1];
+      /* le vie minori prendono il loro pallore dal CSS (--rilievo-strade):
+         e' la manopola con cui si decide quanto le piante pesano rispetto
+         al bassorilievo, ed e' giusto che stia dove stanno le altre */
+      this.ctx.globalAlpha = (f.classe === 'v') ? pallore : t[1];
       this.ctx.strokeStyle = inchiostro;
     };
     m.misura = function(){
@@ -244,10 +247,13 @@
     return m;
   }
 
-  var inchiostro = '#141416';
+  var inchiostro = '#141416', pallore = TRATTI.v[1];
   try{
-    var letto = getComputedStyle(sezione).getPropertyValue('--rilievo-ink');
+    var stile = getComputedStyle(sezione);
+    var letto = stile.getPropertyValue('--rilievo-ink');
     if(letto && letto.trim()) inchiostro = letto.trim();
+    var pal = parseFloat(stile.getPropertyValue('--rilievo-strade'));
+    if(pal > 0 && pal <= 1) pallore = pal;
   }catch(e){}
 
   var piante = [];
