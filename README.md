@@ -1,62 +1,77 @@
 # cape-rilievo
 
-La sezione delle due citta' di **The Cape Studio**: fondo grigio piatto, i
-nomi di Milano e Parigi agli angoli con le loro coordinate, le piante delle
-due citta' che entrano tagliate dai bordi, e in mezzo un bassorilievo che
-non si vede — finche' non ci passi sopra col mouse.
+La sezione delle due citta' di **The Cape Studio**: fondo bianco, i nomi di
+Milano e Parigi agli angoli con le loro coordinate, le piante delle due
+citta' che entrano tagliate dai bordi, e in mezzo un bassorilievo inciso
+che si vede solo dove batte la luce.
 
-Nel Designer di Webflow stanno solo la sezione e le due citta'. Le piante e
-la tela del rilievo le mette questo file. Attenzione alla differenza: **le
-piante vengono piantate sempre**, anche su un telefono e anche senza WebGL,
-mentre la luce parte solo da 992px in su e con un puntatore vero. Se un
-domani si spostasse il controllo delle condizioni prima delle piante, su
-telefono resterebbero due scritte in mezzo al grigio.
+Nel Designer di Webflow stanno solo la sezione e le due citta'. Tutto il
+resto e' qui.
 
-## Cosa c'e' dentro
+## I file
 
 | file | cos'e' |
 |---|---|
-| `cape-rilievo.js` | il motore: una passata di WebGL che illumina la superficie incisa |
+| `cape-rilievo.js` | quello che va in pagina: motore + le due piante scritte dentro |
+| `sorgente.js` | lo stesso file senza le piante (`__MILANO__`, `__PARIGI__`): e' qui che si lavora |
 | `superficie.png` | la mappa delle profondita' del surfista: nero = superficie, bianco = fondo del solco |
-| `milano.svg` `parigi.svg` | le due piante in chiaro: dentro `cape-rilievo.js` ci sono queste, riga per riga |
+| `milano.svg` `parigi.svg` | le due piante in chiaro, identiche a quelle dentro il .js |
+| `piante.py` | le rigenera: confini veri dai dati aperti + trama degli isolati |
 
-## Come e' agganciato
+**Per rigenerare il file in pagina** dopo aver toccato `sorgente.js` o le
+piante: sostituisci `__MILANO__` e `__PARIGI__` col contenuto dei due SVG.
+Sono due `replace`, niente build.
 
-Nel footer della Home, in PARTE 2, con `defer`:
+## Tre lavori, tre condizioni diverse
 
-```html
-<script defer src="https://cdn.jsdelivr.net/gh/cash9086/cape-rilievo@SHA/cape-rilievo.js"></script>
-```
+1. **Pianta le due mappe.** Sempre: telefono compreso, senza WebGL, con le
+   animazioni ridotte. E' la prima cosa che il file fa, prima di qualunque
+   controllo. Se un domani qualcuno sposta i controlli piu' su, su telefono
+   restano due scritte in mezzo al bianco.
+2. **Le fa comparire.** La prima volta che la sezione entra nello schermo
+   si disegnano dal centro verso fuori; dalla seconda in poi e' solo una
+   dissolvenza. Il movimento lo fa il CSS (classi `is-disegno`,
+   `is-aperta`, `is-dentro`), non il JavaScript: gira sul compositore e
+   non impunta lo scroll.
+3. **Accende il bassorilievo.** Solo da 992px in su, con un puntatore vero
+   e con WebGL.
 
-Lo SHA e' quello del commit, come per tutti gli altri script del sito.
-`superficie.png` **non** va indicata da nessuna parte: lo script si ricava
-da solo l'indirizzo da cui e' stato caricato e cerca l'immagine accanto a
-se'. Cambi SHA e l'immagine segue, sempre della stessa versione del codice.
+## Le tre luci
+
+Una e' il puntatore. Le altre due sono automatiche: girano sulla stessa
+ellisse, mezzo giro l'una dall'altra, nello stesso verso, e partono dai due
+bordi opposti. Servono perche' senza, chi arriva sulla sezione vede un
+rettangolo vuoto e tira dritto. Si spengono appena il mouse arriva sopra il
+disegno e tornano appena se ne va.
 
 ## Le manopole
 
-Stanno tutte in cima a `cape-rilievo.js`, una per riga, con scritto a cosa
-servono. Le due che si toccano davvero:
+In cima a `sorgente.js`, una per riga. Le due che si toccano davvero:
 
 - `RAGGIO` — fin dove arriva la luce. Piu' piccolo, piu' il disegno si
   scopre un pezzo per volta;
-- `DIFFUSA` e `LUCIDA` — quanto e' marcato il rilievo. Nel riferimento sono
-  molto bassi: il bello e' che si veda appena.
+- `DIFFUSA` e `LUCIDA` — quanto e' marcato il rilievo.
 
-`FONDO` e' il grigio della sezione (#f4f4f4) e serve al conto che trasforma
-la luce in trasparenza: se cambia il grigio nel CSS, va cambiato anche qui.
+`FONDO` e' il colore della sezione: **1.0 = bianco**, 0.957 se un domani
+torna il grigio #f4f4f4. Non e' un dettaglio estetico, e' il conto che
+trasforma la luce in trasparenza: su bianco puro sopra non c'e' niente,
+quindi le luci non possono schiarire e restano solo le ombre. E' per
+questo che `DIFFUSA` e `LUCIDA` qui sono piu' alte che su un grigio: meta'
+dell'effetto non e' disponibile e va recuperata sull'altra meta'.
 
-## Dove NON gira
+## Le piante
 
-Sotto i 992px, senza un puntatore vero (telefoni e tablet), con "riduci
-animazioni" acceso, o senza WebGL. In tutti questi casi la sezione resta
-quella che si vede nel Designer: le due citta' con le coordinate e le due
-piante. E' voluto: senza mouse non c'e' nessuna luce da muovere.
+Il contorno e' vero: confini comunali da dati aperti (Milano dai comuni
+italiani di openpolis, Parigi da france-geojson). Sono vere anche le
+cerchie e le radiali di Milano, i Navigli, il Lambro, l'Olona, la Senna, il
+canale Saint-Martin, i boulevard e le piazze a stella di Parigi, e i due
+boschi lasciati vuoti.
 
-## Come e' fatta la mappa delle profondita'
+**La trama fine degli isolati e' disegnata, non rilevata**: e' una
+tassellatura di Voronoi con densita' che cala verso la periferia. Serve a
+far leggere "citta'" da lontano. Non usarla per dire dove si gira a
+destra.
 
-Dal disegno a tratto del surfista: i tratti vengono ingrossati di qualche
-pixel, sfumati per arrotondare le pareti, e diventano solchi. Il codice non
-legge mai il disegno originale — legge solo le profondita'. Per rifarla con
-un altro disegno servono tre righe di Pillow: ingrossa, sfuma, salva in
-scala di grigi a 1600px di larghezza.
+Il tratto ha spessore costante (`vector-effect="non-scaling-stroke"`): lo
+spessore lo decide il CSS in pixel veri, cosi' le due piante restano
+coerenti anche se una e' larga 34vw e l'altra 44vw.
