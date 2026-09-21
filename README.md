@@ -12,15 +12,16 @@ resto e' qui.
 
 | file | cos'e' |
 |---|---|
-| `cape-rilievo.js` | quello che va in pagina: motore + le due piante scritte dentro |
+| `cape-rilievo.js` | quello che va in pagina: motore + il dato delle due piante dentro |
 | `sorgente.js` | lo stesso file senza le piante (`__MILANO__`, `__PARIGI__`): e' qui che si lavora |
 | `superficie.png` | la mappa delle profondita' del surfista: nero = superficie, bianco = fondo del solco |
-| `milano.svg` `parigi.svg` | le due piante in chiaro, identiche a quelle dentro il .js |
-| `piante.py` | le rigenera: confini veri dai dati aperti + trama degli isolati |
+| `milano.js.txt` `parigi.js.txt` | il dato delle piante: `[classe, fascia, percorso]` |
+| `milano.svg` `parigi.svg` | le stesse piante come SVG, solo per guardarle |
+| `citta.py` | le rigenera tutte e due |
 
 **Per rigenerare il file in pagina** dopo aver toccato `sorgente.js` o le
-piante: sostituisci `__MILANO__` e `__PARIGI__` col contenuto dei due SVG.
-Sono due `replace`, niente build.
+piante: sostituisci `__MILANO__` e `__PARIGI__` col contenuto dei due
+`.js.txt`. Sono due `replace`, niente build.
 
 ## Tre lavori, tre condizioni diverse
 
@@ -28,11 +29,11 @@ Sono due `replace`, niente build.
    animazioni ridotte. E' la prima cosa che il file fa, prima di qualunque
    controllo. Se un domani qualcuno sposta i controlli piu' su, su telefono
    restano due scritte in mezzo al bianco.
-2. **Le fa comparire.** La prima volta che la sezione entra nello schermo
-   si disegnano dal centro verso fuori; dalla seconda in poi e' solo una
-   dissolvenza. Il movimento lo fa il CSS (classi `is-disegno`,
-   `is-aperta`, `is-dentro`), non il JavaScript: gira sul compositore e
-   non impunta lo scroll.
+2. **Le disegna.** La prima volta che la sezione entra nello schermo ogni
+   singola strada viene tracciata da un capo all'altro, dal centro verso il
+   bordo. Niente compare in dissolvenza. Dalla seconda volta in poi non si
+   ridisegna: resta solo la dissolvenza della mappa intera (classe
+   `is-dentro`).
 3. **Accende il bassorilievo.** Solo da 992px in su, con un puntatore vero
    e con WebGL.
 
@@ -61,17 +62,21 @@ dell'effetto non e' disponibile e va recuperata sull'altra meta'.
 
 ## Le piante
 
-Il contorno e' vero: confini comunali da dati aperti (Milano dai comuni
-italiani di openpolis, Parigi da france-geojson). Sono vere anche le
-cerchie e le radiali di Milano, i Navigli, il Lambro, l'Olona, la Senna, il
-canale Saint-Martin, i boulevard e le piazze a stella di Parigi, e i due
-boschi lasciati vuoti.
+Sono dipinte su tela, non disegnate nella pagina. Il perche' e' scritto in
+cima a `sorgente.js`: animare qualche migliaio di strade in SVG portava la
+pagina da 16 a 166 millisecondi per fotogramma. Su tela si dipinge solo il
+pezzo nuovo e il costo non dipende piu' da quanto e' grande la mappa.
 
-**La trama fine degli isolati e' disegnata, non rilevata**: e' una
-tassellatura di Voronoi con densita' che cala verso la periferia. Serve a
-far leggere "citta'" da lontano. Non usarla per dire dove si gira a
-destra.
+**Le strade sono disegnate, non rilevate.** Milano e' radiocentrica per
+costruzione (cerchie e radiali, con i Navigli, il Lambro e l'Olona al
+posto giusto), Parigi e' un mosaico di quartieri ognuno con la sua
+orientazione, piu' la Senna, il canale Saint-Martin, i boulevard e le
+piazze a stella. Verso il bordo le strade si diradano fino a sparire: la
+mappa si dissolve invece di finire con un taglio.
 
-Il tratto ha spessore costante (`vector-effect="non-scaling-stroke"`): lo
-spessore lo decide il CSS in pixel veri, cosi' le due piante restano
-coerenti anche se una e' larga 34vw e l'altra 44vw.
+Non e' cartografia: serve a far leggere "citta'", non a dire dove si gira
+a destra. Per avere le strade vere servirebbero dati OpenStreetMap, che da
+qui non sono raggiungibili.
+
+**I due .avif** in questa repo sono le anteprime con filigrana da cui e'
+partita la richiesta: non sono usate da niente e non vanno pubblicate.

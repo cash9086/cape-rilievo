@@ -6,10 +6,12 @@
 
      1. PIANTA LE DUE MAPPE dentro la sezione. Sempre: telefono compreso,
         anche senza WebGL, anche con le animazioni ridotte.
-     2. LE FA COMPARIRE. La prima volta che la sezione entra nello schermo
-        si disegnano dal centro verso fuori; dalla seconda in poi e' solo
-        una dissolvenza. Anche questo sempre, tranne con "riduci
-        animazioni" acceso: li' sono gia' aperte e basta.
+     2. LE DISEGNA. La prima volta che la sezione entra nello schermo ogni
+        singola strada viene tracciata da un capo all'altro, dal centro
+        verso il bordo. Nessuna riga compare in dissolvenza. Dalla seconda
+        volta in poi non si ridisegna: resta solo la dissolvenza della
+        mappa intera. Anche questo sempre, tranne con "riduci animazioni"
+        acceso: li' le mappe sono gia' li' e basta.
      3. ACCENDE IL BASSORILIEVO. Solo da 992px in su, con un puntatore
         vero e con WebGL. Su un telefono non parte: senza mouse non c'e'
         nessuna luce da muovere, e un rilievo che non si puo' scoprire e'
@@ -93,49 +95,235 @@
   try{ ridotto = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
 
   /* ══ 1. le due piante ══════════════════════════════════════════════════
-     Vanno messe per prime e prima di qualunque controllo: sono l'unica
-     cosa che deve esserci sempre. Se ci sono gia' (script caricato due
-     volte, oppure un domani le sposti in un Embed) non si tocca niente. */
+     Non sono immagini e non sono disegni SVG: sono due TELE DIPINTE dal
+     codice, strada per strada.
 
-  var MILANO = '__MILANO__';
+     PERCHE' COSI'
+     Le strade sono qualche migliaio. Se fossero disegni veri nella pagina
+     e li animassi, il browser dovrebbe ridisegnarli TUTTI a ogni
+     fotogramma: misurato, la pagina passava da 16 a 166 millisecondi per
+     fotogramma, cioe' da liscia a scatti. Su una tela dipinta invece
+     quello che e' gia' tracciato resta li': a ogni fotogramma si dipinge
+     solo il pezzo nuovo, e il costo non dipende piu' da quanto e' grande
+     la mappa.
 
-  var PARIGI = '__PARIGI__';
+     IL DATO
+     Ogni voce e' [classe, fascia, percorso]. La classe dice il peso del
+     tratto (v = vie, a = assi, p = principali, q = acque), la fascia dice
+     quanto e' lontana dal centro — le mappe escono gia' ordinate cosi' —
+     e il percorso e' scritto come un path SVG ridotto all'osso: M sposta,
+     l tira una riga, tutto a numeri interi.                              */
 
-  if(!sezione.querySelector('.cape-rilievo-mappa')){
-    var culla = document.createElement('div');
-    culla.innerHTML = MILANO + PARIGI;
-    var primo = sezione.firstChild;
-    while(culla.firstChild) sezione.insertBefore(culla.firstChild, primo);
+  var MAPPE = {
+    milano: __MILANO__,
+    parigi: __PARIGI__
+  };
+
+  /* spessore del tratto (in unita' della mappa, che e' larga 1000) e
+     quanto e' chiaro. Le vie minori sono volutamente pallide: sono il
+     tessuto, non il disegno. */
+  var TRATTI = { v:[1.15,0.55], a:[2.1,1.0], p:[3.2,1.0], q:[4.2,0.78] };
+
+  var DISEGNO_FASCIA = 820;  /* quanto ci mette UNA fascia, in ms         */
+  var DISEGNO_SFASA  = 92;   /* ritardo tra una fascia e la successiva    */
+
+  function polilinee(d){
+    /* "M12 34l5-6l-3 2M..." -> liste di coordinate.
+       Attenzione allo spazio: quando il secondo numero e' negativo lo
+       spazio non c'e', perche' il segno meno basta gia' a separarli. E'
+       sintassi giusta e fa risparmiare qualche migliaio di caratteri, ma
+       un lettore che si aspetta sempre lo spazio legge NaN e non disegna
+       piu' niente. */
+    var re = /([Ml])(-?\d+) ?(-?\d+)/g, m, linee = [], corr = null, x = 0, y = 0;
+    while((m = re.exec(d))){
+      var a = +m[2], b = +m[3];
+      if(m[1] === 'M'){ x = a; y = b; corr = [x, y]; linee.push(corr); }
+      else if(corr){ x += a; y += b; corr.push(x, y); }
+    }
+    return linee;
   }
 
-  /* ══ 2. la comparsa ════════════════════════════════════════════════════
-     La prima volta che la sezione entra nello schermo le mappe si aprono
-     dal centro, una frazione di secondo l'una dopo l'altra. Da li' in poi
-     resta solo la dissolvenza: e' un effetto d'ingresso, non un giocattolo
-     che si ripete ogni volta che si scorre su e giu'.
+  function lunghezza(L){
+    var s = 0;
+    for(var k = 0; k + 3 < L.length; k += 2)
+      s += Math.sqrt((L[k+2]-L[k])*(L[k+2]-L[k]) + (L[k+3]-L[k+1])*(L[k+3]-L[k+1]));
+    return s;
+  }
 
-     Le classi le mette il codice ma il movimento lo fa il CSS, che lo fa
-     girare sul compositore e non sul filo principale: mentre le mappe si
-     aprono, lo scroll resta liscio. */
+  /* Una fascia di strade che si sa dipingere un pezzo per volta: tiene il
+     segno di dove era arrivata, e quando le si chiede di avanzare dipinge
+     SOLO il tratto nuovo. */
+  function fascia(voce){
+    var linee = polilinee(voce[2]);
+    var tot = 0;
+    for(var k = 0; k < linee.length; k++) tot += lunghezza(linee[k]);
+    return {
+      classe: voce[0], indice: voce[1], linee: linee, totale: tot,
+      i: 0, j: 0, resto: 0, dipinto: 0,
+      fatto: function(){ return this.dipinto; },
+      segna: function(q){ this.dipinto = q; },
+      finita: function(){ return this.i >= this.linee.length; },
+      azzera: function(){ this.i = 0; this.j = 0; this.resto = 0; this.dipinto = 0; },
+      avanza: function(ctx, quanto){
+        if(this.finita()) return;
+        ctx.beginPath();
+        while(quanto > 0 && this.i < this.linee.length){
+          var L = this.linee[this.i];
+          if(this.j * 2 + 3 >= L.length){ this.i++; this.j = 0; this.resto = 0; continue; }
+          var x1 = L[this.j*2], y1 = L[this.j*2+1], x2 = L[this.j*2+2], y2 = L[this.j*2+3];
+          var seg = Math.sqrt((x2-x1)*(x2-x1) + (y2-y1)*(y2-y1));
+          if(seg < 0.0001){ this.j++; this.resto = 0; continue; }
+          var manca = seg - this.resto;
+          var t0 = this.resto / seg;
+          if(manca <= quanto){
+            ctx.moveTo(x1 + (x2-x1)*t0, y1 + (y2-y1)*t0);
+            ctx.lineTo(x2, y2);
+            quanto -= manca; this.j++; this.resto = 0;
+          } else {
+            var t1 = (this.resto + quanto) / seg;
+            ctx.moveTo(x1 + (x2-x1)*t0, y1 + (y2-y1)*t0);
+            ctx.lineTo(x1 + (x2-x1)*t1, y1 + (y2-y1)*t1);
+            this.resto += quanto; quanto = 0;
+          }
+        }
+        ctx.stroke();
+      },
+      tutta: function(ctx){
+        ctx.beginPath();
+        for(var a = 0; a < this.linee.length; a++){
+          var L = this.linee[a];
+          ctx.moveTo(L[0], L[1]);
+          for(var b = 2; b + 1 < L.length; b += 2) ctx.lineTo(L[b], L[b+1]);
+        }
+        ctx.stroke();
+        this.i = this.linee.length;
+        this.dipinto = this.totale;
+      }
+    };
+  }
 
-  var aperta = false;
+  function pianta(nome){
+    var cv = document.createElement('canvas');
+    cv.className = 'cape-rilievo-mappa is-' + nome;
+    cv.setAttribute('aria-hidden', 'true');
+    var m = {
+      nodo: cv, ctx: cv.getContext('2d'), scala: 0, lato: 0,
+      fasce: MAPPE[nome].map(fascia)
+    };
+    m.stile = function(f){
+      var t = TRATTI[f.classe] || TRATTI.v;
+      this.ctx.lineWidth = t[0];
+      this.ctx.globalAlpha = t[1];
+      this.ctx.strokeStyle = inchiostro;
+    };
+    m.misura = function(){
+      var r = this.nodo.getBoundingClientRect();
+      if(!r.width) return false;
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+      var lato = Math.round(r.width * dpr);
+      if(lato === this.lato) return false;
+      this.lato = lato;
+      this.nodo.width = lato; this.nodo.height = lato;
+      this.scala = lato / 1000;
+      this.ctx.setTransform(this.scala, 0, 0, this.scala, 0, 0);
+      this.ctx.lineCap = 'round';
+      this.ctx.lineJoin = 'round';
+      return true;
+    };
+    m.ridisegna = function(){
+      this.ctx.save();
+      this.ctx.setTransform(1,0,0,1,0,0);
+      this.ctx.clearRect(0, 0, this.lato, this.lato);
+      this.ctx.restore();
+      for(var k = 0; k < this.fasce.length; k++){
+        this.fasce[k].azzera();
+        this.stile(this.fasce[k]);
+        this.fasce[k].tutta(this.ctx);
+      }
+    };
+    return m;
+  }
+
+  var inchiostro = '#141416';
+  try{
+    var letto = getComputedStyle(sezione).getPropertyValue('--rilievo-ink');
+    if(letto && letto.trim()) inchiostro = letto.trim();
+  }catch(e){}
+
+  var piante = [];
+  if(!sezione.querySelector('.cape-rilievo-mappa')){
+    piante = [pianta('milano'), pianta('parigi')];
+    var primo = sezione.firstChild;
+    for(var q = 0; q < piante.length; q++) sezione.insertBefore(piante[q].nodo, primo);
+  }
+
+  /* ══ 2. il disegno ═════════════════════════════════════════════════════
+     La prima volta che la sezione entra nello schermo, ogni singola strada
+     viene tracciata da un capo all'altro. Si parte dalle strade del centro
+     e si arriva a quelle del bordo: le fasce partono una dopo l'altra,
+     sfasate, e dentro ogni fascia le strade escono in fila.
+
+     Niente compare in dissolvenza. La dissolvenza c'e' solo dalla seconda
+     volta in poi, quando la mappa e' gia' disegnata e la sezione rientra
+     nello schermo: li' non si ridisegna niente, e' un ingresso, non un
+     giocattolo che riparte ogni volta che si scorre.                      */
+
+  var aperta = false, dipingendo = false, t_disegno = 0;
+
+  function disegna_subito(){
+    for(var k = 0; k < piante.length; k++){ piante[k].misura(); piante[k].ridisegna(); }
+  }
+
+  function passo_disegno(ora){
+    if(!t_disegno) t_disegno = ora;
+    var trascorso = ora - t_disegno, resta = false, k, f, m, quota;
+    for(k = 0; k < piante.length; k++){
+      m = piante[k];
+      for(var i = 0; i < m.fasce.length; i++){
+        f = m.fasce[i];
+        if(f.finita()) continue;
+        var da = f.indice * DISEGNO_SFASA;
+        if(trascorso < da){ resta = true; continue; }
+        quota = f.totale * Math.min(1, (ora - t_disegno - da) / DISEGNO_FASCIA);
+        m.stile(f);
+        f.avanza(m.ctx, Math.max(0, quota - f.fatto()));
+        f.segna(quota);
+        if(!f.finita()) resta = true;
+      }
+    }
+    if(resta) requestAnimationFrame(passo_disegno);
+    else dipingendo = false;
+  }
 
   function mostra(){
     if(!aperta){
       aperta = true;
-      if(ridotto){ sezione.classList.add('is-aperta', 'is-dentro'); return; }
-      sezione.classList.add('is-disegno');
-      /* una lettura forzata: senza, il browser accorpa lo stato iniziale
-         e quello finale nello stesso fotogramma e la transizione non parte */
-      void sezione.offsetWidth;
-      sezione.classList.add('is-aperta', 'is-dentro');
-      setTimeout(function(){ sezione.classList.remove('is-disegno'); }, DISEGNO + 400);
-      return;
+      var pronto = true;
+      for(var k = 0; k < piante.length; k++) if(!piante[k].misura() && !piante[k].lato) pronto = false;
+      if(!pronto){ setTimeout(mostra_forza, 60); }
+      else if(ridotto){ disegna_subito(); }
+      else { dipingendo = true; t_disegno = 0; requestAnimationFrame(passo_disegno); }
     }
     sezione.classList.add('is-dentro');
   }
 
+  function mostra_forza(){
+    for(var k = 0; k < piante.length; k++) piante[k].misura();
+    if(ridotto) disegna_subito();
+    else { dipingendo = true; t_disegno = 0; requestAnimationFrame(passo_disegno); }
+  }
+
   function nascondi(){ sezione.classList.remove('is-dentro'); }
+
+  var rM = null;
+  window.addEventListener('resize', function(){
+    clearTimeout(rM);
+    rM = setTimeout(function(){
+      var cambiato = false;
+      for(var k = 0; k < piante.length; k++) if(piante[k].misura()) cambiato = true;
+      if(cambiato && aperta && !dipingendo) disegna_subito();
+    }, 200);
+  }, { passive:true });
 
   /* ══ 3. il bassorilievo ════════════════════════════════════════════════ */
 
@@ -397,9 +585,7 @@
   guarda();
 
   window.capePatti && capePatti.dichiara('rilievo delle citta', {
-    scrivo: [['.cape-rilievo-mappa', '.cape-rilievo', 'le piante di Milano e Parigi, piantate dal codice'],
-             ['is-aperta',  '.cape-rilievo', 'le mappe si sono disegnate: da qui in poi solo dissolvenza'],
-             ['is-disegno', '.cape-rilievo', 'sta girando la comparsa dal centro, una volta sola'],
+    scrivo: [['.cape-rilievo-mappa', '.cape-rilievo', 'le due tele su cui vengono dipinte le piante'],
              ['is-dentro',  '.cape-rilievo', 'la sezione e\' sullo schermo: mappe visibili'],
              ['.cape-rilievo-tela', '.cape-rilievo', 'la tela in cui il bassorilievo viene disegnato']],
     leggo:  [['cape-rilievo', '.cape-rilievo', 'la sezione: senza di lei il file non fa niente']]
