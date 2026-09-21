@@ -33,7 +33,7 @@ from scipy.ndimage import gaussian_filter, grey_dilation
 SRC='/tmp/claude-0/-home-user-skills/1d89a9ac-84a2-550d-bc87-04b03ec139d5/images/1.png'
 OUT='/tmp/claude-0/-home-user-skills/1d89a9ac-84a2-550d-bc87-04b03ec139d5/scratchpad/rilievo/'
 W=1600
-S_MASSA, A_MASSA = 38.0, 0.95
+S_MASSA, A_MASSA = 38.0, 0.0   # la gobba e' spenta: lo scavo e' solo inciso
 S_SOLCO, SP_SOLCO = 5.5, 7
 
 def inchiostro():
@@ -59,25 +59,14 @@ solco=solco/max(solco.max(),1e-6)
 # pesa venti volte meno e, interpolato, resta identico.
 Image.fromarray(np.clip(np.rint(solco*255),0,255).astype(np.uint8)).save(OUT+'superficie.png', optimize=True)
 
-mdy,mdx=np.gradient(-A_MASSA*massa)
-s=float(np.percentile(np.abs(np.concatenate([mdx.ravel(),mdy.ravel()])),99.9))
-Wg=W//4
-gx=np.asarray(Image.fromarray(np.clip(mdx/s,-1,1).astype(np.float32), 'F').resize((Wg,int(Wg*ink.shape[0]/W)), Image.LANCZOS))
-gy=np.asarray(Image.fromarray(np.clip(mdy/s,-1,1).astype(np.float32), 'F').resize((Wg,int(Wg*ink.shape[0]/W)), Image.LANCZOS))
-G=np.clip(np.rint((gx*0.5+0.5)*255),0,255).astype(np.uint8)
-B=np.clip(np.rint((gy*0.5+0.5)*255),0,255).astype(np.uint8)
-Image.fromarray(np.stack([G,B,np.full_like(G,128)],-1)).save(OUT+'gobba.png', optimize=True)
-print('superficie %dx%d  %d KB   gobba %dx%d  %d KB   scala pendenza %.5f'%(
-    W, ink.shape[0], os.path.getsize(OUT+'superficie.png')//1024,
-    Wg, G.shape[0], os.path.getsize(OUT+'gobba.png')//1024, s))
+print('superficie %dx%d  %d KB'%(W, ink.shape[0], os.path.getsize(OUT+'superficie.png')//1024))
 
 def illumina(nome, luce=(0.42,0.34), alt=0.30, raggio=0.62, forza=7.0, massa_f=1.0,
              diffusa=0.30, lucida=0.20, durezza=28.0, fondo=1.0, W2=1100):
     src=Image.open(OUT+'superficie.png'); H=int(W2*src.height/src.width)
     h=np.asarray(src.resize((W2,H), Image.LANCZOS)).astype(np.float32)/255.0
-    g=np.asarray(Image.open(OUT+'gobba.png').resize((W2,H), Image.BILINEAR)).astype(np.float32)/255.0
-    dx=(np.roll(h,-1,axis=1)-np.roll(h,1,axis=1))*forza + (g[:,:,0]*2-1)*massa_f
-    dy=(np.roll(h,-1,axis=0)-np.roll(h,1,axis=0))*forza + (g[:,:,1]*2-1)*massa_f
+    dx=(np.roll(h,-1,axis=1)-np.roll(h,1,axis=1))*forza
+    dy=(np.roll(h,-1,axis=0)-np.roll(h,1,axis=0))*forza
     nx,ny,nz=dx,dy,np.ones_like(h)
     n=np.sqrt(nx*nx+ny*ny+nz*nz); nx,ny,nz=nx/n,ny/n,nz/n
     yy,xx=np.mgrid[0:H,0:W2].astype(np.float32); xx/=W2; yy/=W2
@@ -98,5 +87,4 @@ def illumina(nome, luce=(0.42,0.34), alt=0.30, raggio=0.62, forza=7.0, massa_f=1
     return col
 
 if __name__=='__main__':
-    for mf in (0.7, 1.1, 1.6):
-        illumina('prev_m%d'%int(mf*10), massa_f=mf)
+    illumina('prev_solo_solco', forza=7.0)

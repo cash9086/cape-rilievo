@@ -14,9 +14,8 @@ resto e' qui.
 |---|---|
 | `cape-rilievo.js` | quello che va in pagina: motore + il dato delle due piante dentro |
 | `sorgente.js` | lo stesso file senza le piante (`__MILANO__`, `__PARIGI__`): e' qui che si lavora |
-| `superficie.png` | il SOLCO del surfista: quota delle linee incise |
-| `gobba.png` | il VOLUME: la pendenza della gobba, gia' derivata |
-| `superficie.py` | rigenera tutti e due dal disegno a tratto |
+| `superficie.png` | la quota del surfista inciso: nero = superficie, bianco = fondo del solco |
+| `superficie.py` | la rigenera dal disegno a tratto |
 | `milano.js.txt` `parigi.js.txt` | il dato delle piante: `[classe, fascia, percorso]` |
 | `milano.svg` `parigi.svg` | le stesse piante come SVG, solo per guardarle |
 | `rasterizza.py` + `assi.py` | **la catena vera**: da un SVG di mappa alle strade tracciabili |
@@ -57,7 +56,14 @@ piante: sostituisci `__MILANO__` e `__PARIGI__` col contenuto dei due
    bordo. Niente compare in dissolvenza. Dalla seconda volta in poi non si
    ridisegna: resta solo la dissolvenza della mappa intera (classe
    `is-dentro`).
-3. **Accende il bassorilievo.** Solo da 992px in su, con un puntatore vero
+3. **Fa entrare i testi e la barra.** Ogni riga di "From / Milan" e delle
+   coordinate sale da dietro una fessura, come le tendine del resto del
+   sito, e insieme a loro rientra dall'alto la barra di navigazione — che
+   si era ritirata poco prima, mentre lo schermo era gia' bianco.
+   **Font, corpo e colore dei testi non sono scritti da nessuna parte qui**:
+   si impostano nel Designer sulle classi `cape-rilievo-nome` e
+   `cape-rilievo-coord`, e quello che c'e' li' vale.
+4. **Accende il bassorilievo.** Solo da 992px in su, con un puntatore vero
    e con WebGL.
 
 ## Le tre luci
@@ -68,29 +74,26 @@ bordi opposti. Servono perche' senza, chi arriva sulla sezione vede un
 rettangolo vuoto e tira dritto. Si spengono appena il mouse arriva sopra il
 disegno e tornano appena se ne va.
 
-## Il bassorilievo: solco e gobba
+## Il bassorilievo: due cose diverse
 
-Il rilievo e' fatto di due cose che si sommano:
+Il rilievo e' inciso, non gonfiato: nel file c'e' la quota dei solchi e
+basta. Il senso di tridimensionalita' viene da altro, e sono DUE cose che
+lavorano insieme:
 
-- **il solco** (`superficie.png`): le linee del disegno, incise. Ha
-  dettaglio fine, quindi il file e' grande;
-- **la gobba** (`gobba.png`): il corpo della figura che si alza dal fondo.
-  E' quello che la fa sembrare scolpita invece che incisa.
+1. **la luce che segue il mouse** — dice che la superficie ha delle pareti;
+2. **la lastra che si inclina** (`INCLINA`) — dice che e' un oggetto
+   appoggiato li', non un disegno stampato. Sono sei gradi scarsi, e si
+   sentono solo in movimento.
 
-La gobba **non e' salvata come quota ma come pendenza, gia' derivata**, e
-non e' un vezzo: e' un campo larghissimo e liscio, a otto bit i suoi
-gradini valgono un duecentocinquantesimo — invisibili sull'altezza, ma la
-luce guarda la pendenza, e la pendenza di una scala e' una fila di
-scalini. Sullo schermo venivano anelli concentrici attorno alla figura.
-Derivandola in virgola mobile prima di salvarla, il problema sparisce; e
-siccome nessuno la deve piu' derivare, sta a un quarto di lato e pesa
-venti volte meno.
+L'inclinazione sta sul canvas, non sulla tela che lo contiene: la tela
+serve a misurare dov'e' il puntatore, e una cosa che si inclina cambia
+misura a ogni fotogramma — la luce finirebbe per inseguire se stessa.
 
 ## Le manopole
 
 In cima a `sorgente.js`, una per riga. Quelle che si toccano davvero:
 
-- `MASSA` — quanto si alza il corpo della figura (il 3D);
+- `INCLINA` — di quanti gradi la lastra segue il mouse;
 - `FORZA` — quanto sono ripide le pareti del solco;
 - `RAGGIO` — fin dove arriva la luce;
 - `DIFFUSA` e `LUCIDA` — quanto e' marcato il rilievo;

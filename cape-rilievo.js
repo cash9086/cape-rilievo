@@ -65,9 +65,7 @@
   /* ----- le manopole del rilievo ---------------------------------------
      Sono tutte qui. Il resto del file non ha numeri suoi.                */
 
-  var FORZA     = 10.0;  /* quanto sono ripide le pareti del solco        */
-  var MASSA     = 1.15;  /* quanto si alza il corpo della figura: e' questo
-                            che la fa scolpita invece che incisa          */
+  var FORZA     = 6.0;   /* quanto sono ripide le pareti del solco        */
   var DIFFUSA   = 0.30;  /* quanto scurisce la luce radente               */
   var LUCIDA    = 0.20;  /* il riflesso: quanto e' lucido il gesso        */
   var DUREZZA   = 28.0;  /* quanto e' stretto quel riflesso               */
@@ -88,6 +86,14 @@
 
   /* ----- il resto ------------------------------------------------------ */
 
+  var INCLINA   = 6.5;   /* di quanti gradi la lastra si inclina seguendo il
+                            mouse. E' questo che la fa sembrare un oggetto
+                            vero invece di un disegno: la luce da sola dice
+                            che c'e' un rilievo, l'inclinazione dice che e'
+                            una cosa appoggiata li'                       */
+  var MOLLA     = 0.08;  /* quanto l'inclinazione insegue: bassa = pesante */
+  var BARRA_SU  = 0.9;   /* quanto prima dell'aggancio la barra in alto si
+                            ritira, in schermate                          */
   var MIN_LARGO = 992;   /* sotto: niente rilievo                         */
   var DISEGNO   = 1700;  /* durata della comparsa delle mappe, in ms      */
   var RIPIEGO   = 'https://cdn.jsdelivr.net/gh/cash9086/cape-rilievo@main/';
@@ -110,6 +116,42 @@
 
   var ridotto = false;
   try{ ridotto = matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+
+  /* ——— le tendine dei testi ———
+     Ogni riga finisce dentro una fessura che la ritaglia, e parte da sotto.
+     E' la stessa tendina del resto del sito: il ritaglio e' allargato di
+     0.14em sopra e sotto (se no taglia accenti e code delle lettere) e di
+     un mondo ai lati (se no taglia la pancia della O).
+
+     I testi restano quelli del Designer: font, corpo e colore non li tocca
+     nessuno qui: si spostano solo. */
+
+  var righe = [];
+
+  function tendina(el, ritardo){
+    if(!el || el.getAttribute('data-tendina')) return;
+    el.setAttribute('data-tendina', '1');
+    var pezzi = el.innerHTML.split(/<br\s*\/?>/i), dentro = '';
+    for(var i = 0; i < pezzi.length; i++){
+      dentro += '<span class="cape-rilievo-fessura"><span class="cape-rilievo-riga">' +
+                (pezzi[i] || '&nbsp;') + '</span></span>';
+    }
+    el.innerHTML = dentro;
+    var r = el.querySelectorAll('.cape-rilievo-riga');
+    for(var j = 0; j < r.length; j++){
+      r[j].style.transitionDelay = (ritardo + j * 90) + 'ms';
+      righe.push(r[j]);
+    }
+  }
+
+  (function armaTesti(){
+    var blocchi = pannello.querySelectorAll('.cape-rilievo-citta');
+    for(var i = 0; i < blocchi.length; i++){
+      var base = i * 150;
+      tendina(blocchi[i].querySelector('.cape-rilievo-nome'), base);
+      tendina(blocchi[i].querySelector('.cape-rilievo-coord'), base + 190);
+    }
+  })();
 
   /* ══ 1. le due piante ══════════════════════════════════════════════════
      Non sono immagini e non sono disegni SVG: sono due TELE DIPINTE dal
@@ -319,6 +361,8 @@
   }
 
   function mostra(){
+    sezione.classList.add('is-entrata');      /* le tendine salgono, e con
+                                                 loro rientra la barra */
     if(!aperta){
       aperta = true;
       var pronto = true;
@@ -367,7 +411,7 @@
      sotto c'e' il bianco pieno della sezione dei pixel: la sezione non
      arriva, e' gia' li', e le mappe si disegnano sopra quel bianco. */
 
-  var incollata = false, inCoda = false;
+  var incollata = false, inCoda = false, barraSu = false;
 
   function controllaAggancio(){
     inCoda = false;
@@ -378,6 +422,16 @@
        "finche' e' incollata": scorrendo in giu' il pannello si sgancia e
        se ne va su insieme alla pagina, e deve andarsene scorrendo, non
        sparire di colpo. */
+    /* La barra in alto si ritira poco prima dell'aggancio — quando sotto
+       c'e' gia' il bianco — e rientra insieme alle scritte. Nel sito non
+       aveva nessuna animazione d'ingresso: questa gliela mette solo qui,
+       e la toglie appena la sezione e' passata. */
+    var su = (r.top > 0 && r.top < window.innerHeight * BARRA_SU);
+    if(su !== barraSu){
+      barraSu = su;
+      document.documentElement.classList.toggle('cape-rilievo-barra-su', su);
+    }
+
     var ora = (r.top <= 0);
     if(ora !== incollata){
       incollata = ora;
@@ -435,8 +489,8 @@
 
   var FRAG =
     'precision highp float;varying vec2 uv;uniform sampler2D mappa;' +
-    'uniform vec2 texel;uniform vec3 luceA,luceB,luceC;uniform sampler2D gobba;' +
-    'uniform float aspetto,forza,massa,diffusa,lucida,durezza,altezza,raggio,fondo;' +
+    'uniform vec2 texel;uniform vec3 luceA,luceB,luceC;' +
+    'uniform float aspetto,forza,diffusa,lucida,durezza,altezza,raggio,fondo;' +
     /* Tre uniform separate e non un array di tre: un array di vec3 si
        carica in un colpo solo, ma va indicizzato nello shader e alcuni
        driver lo trattano male. Qui non c'e' niente da interpretare. */
@@ -456,11 +510,7 @@
       'float hd=texture2D(mappa,uv+vec2(texel.x,0.0)).r;' +
       'float hg=texture2D(mappa,uv-vec2(0.0,texel.y)).r;' +
       'float ha=texture2D(mappa,uv+vec2(0.0,texel.y)).r;' +
-      /* la pendenza e' la somma di due cose: il solco, che si ricava dalle
-         quattro letture qui sopra, e la gobba, che nel suo file e' GIA'
-         derivata e quindi si legge e basta */
-      'vec2 g=(texture2D(gobba,uv).rg*2.0-1.0)*massa;' +
-      'vec3 n=normalize(vec3((hd-hs)*forza+g.x,(hg-ha)*forza+g.y,1.0));' +
+      'vec3 n=normalize(vec3((hd-hs)*forza,(hg-ha)*forza,1.0));' +
       'vec2 pos=vec2(uv.x,(1.0-uv.y)*aspetto);' +
       'float d=luce(n,pos,luceA)+luce(n,pos,luceB)+luce(n,pos,luceC);' +
       'float su=step(0.0,d);' +
@@ -494,7 +544,7 @@
   gl.vertexAttribPointer(ap, 2, gl.FLOAT, false, 0, 0);
 
   var U = {};
-  ['mappa','gobba','texel','aspetto','forza','massa','diffusa','lucida','durezza','altezza','raggio','fondo',
+  ['mappa','texel','aspetto','forza','diffusa','lucida','durezza','altezza','raggio','fondo',
    'luceA','luceB','luceC']
     .forEach(function(n){ U[n] = gl.getUniformLocation(prog, n); });
 
@@ -502,7 +552,6 @@
   gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
   gl.clearColor(0,0,0,0);
   gl.uniform1f(U.forza, FORZA);
-  gl.uniform1f(U.massa, MASSA);
   gl.uniform1f(U.diffusa, DIFFUSA);
   gl.uniform1f(U.lucida, LUCIDA);
   gl.uniform1f(U.durezza, DUREZZA);
@@ -510,50 +559,27 @@
   gl.uniform1f(U.raggio, RAGGIO);
   gl.uniform1f(U.fondo, FONDO);
 
-  var pronta = false, aspetto = 0.65, caricate = 0;
-
-  function texture(unita, img, filtro){
-    var t = gl.createTexture();
-    gl.activeTexture(gl.TEXTURE0 + unita);
-    gl.bindTexture(gl.TEXTURE_2D, t);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filtro);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filtro);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-  }
-
-  /* Due file: il solco, grande perche' ha dettaglio fine, e la gobba, che
-     e' un quarto di lato perche' e' gia' derivata — un campo che nessuno
-     deve piu' derivare si puo' tenere piccolo senza perdere niente. */
-  function arrivata(){
-    if(++caricate < 2) return;
-    pronta = true;
-    tela.appendChild(cv);
-    misura();
-    sveglia();
-  }
+  var pronta = false, aspetto = 0.65;
 
   var img = new Image();
   img.crossOrigin = 'anonymous';
   img.onload = function(){
-    texture(0, img, gl.LINEAR);
+    var t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.uniform1i(U.mappa, 0);
     gl.uniform2f(U.texel, 1 / img.naturalWidth, 1 / img.naturalHeight);
-    arrivata();
+    pronta = true;
+    tela.appendChild(cv);
+    misura();
+    sveglia();
   };
-
-  var img2 = new Image();
-  img2.crossOrigin = 'anonymous';
-  img2.onload = function(){
-    texture(1, img2, gl.LINEAR);
-    gl.uniform1i(U.gobba, 1);
-    arrivata();
-  };
-
-  img.src  = base + 'superficie.png';
-  img2.src = base + 'gobba.png';
+  img.src = base + 'superficie.png';
 
   var largo = 0, alto = 0;
 
@@ -580,6 +606,20 @@
 
   var luci = new Float32Array(9);
   var lx = 0.5, ly = 0.3, sulMouse = 0, angolo = 0, t0 = 0;
+  var incX = 0, incY = 0, miraX = 0, miraY = 0;
+
+  /* ——— l'inclinazione ———
+     La luce che si muove dice che c'e' un rilievo; a farlo sembrare un
+     oggetto vero e' che la lastra si INCLINA, appena, seguendo il mouse.
+     Sta sulla tela e non sul contenitore apposta: il contenitore lo
+     misuriamo per sapere dov'e' il puntatore, e se lo inclinassimo la sua
+     misura cambierebbe a ogni fotogramma — la luce inseguirebbe se stessa. */
+  function inclina(){
+    incX += (miraX - incX) * MOLLA;
+    incY += (miraY - incY) * MOLLA;
+    cv.style.transform = 'perspective(1500px) rotateX(' + (-incY * INCLINA) +
+                         'deg) rotateY(' + (incX * INCLINA) + 'deg)';
+  }
 
   function luciAggiorna(dt){
     var giro = AUTO_FORZA * (1 - sulMouse) * acceso;
@@ -619,6 +659,7 @@
     if(Math.abs(mira - acceso) < 0.002) acceso = mira;
     sulMouse += ((dentroMouse ? 1 : 0) - sulMouse) * 0.12;
     luciAggiorna(dt);
+    inclina();
     disegna();
     if(acceso === 0 && mira === 0){ girando = false; t0 = 0; return; }
     requestAnimationFrame(giro);
@@ -641,7 +682,7 @@
 
   motore = {
     sveglia: function(){ misura(); sveglia(); },
-    spegni:  function(){ mira = 0; dentroMouse = false; }
+    spegni:  function(){ mira = 0; dentroMouse = false; miraX = 0; miraY = 0; }
   };
 
   pannello.addEventListener('pointermove', function(e){
@@ -655,11 +696,13 @@
        vedrebbe sparire tutto: le automatiche spente perche' c'e' il
        mouse, e il mouse troppo lontano per illuminare qualcosa. */
     dentroMouse = (lx > -0.3 && lx < 1.3 && ly > -0.3 * aspetto && ly < 1.3 * aspetto);
+    miraX = Math.max(-1, Math.min(1, (lx - 0.5) * 2));
+    miraY = Math.max(-1, Math.min(1, (ly - aspetto / 2) / (aspetto / 2)));
     sveglia();
   }, { passive:true });
 
-  pannello.addEventListener('pointerleave', function(){ dentroMouse = false; }, { passive:true });
-  window.addEventListener('blur', function(){ dentroMouse = false; });
+  pannello.addEventListener('pointerleave', function(){ dentroMouse = false; miraX = 0; miraY = 0; }, { passive:true });
+  window.addEventListener('blur', function(){ dentroMouse = false; miraX = 0; miraY = 0; });
 
   var rT = null;
   window.addEventListener('resize', function(){
@@ -672,6 +715,8 @@
   window.capePatti && capePatti.dichiara('rilievo delle citta', {
     scrivo: [['.cape-rilievo-mappa', '.cape-rilievo', 'le due tele su cui vengono dipinte le piante'],
              ['is-dentro',  '.cape-rilievo', 'la sezione e\' sullo schermo: mappe visibili'],
+             ['is-entrata', '.cape-rilievo', 'le tendine dei testi sono salite'],
+             ['cape-rilievo-barra-su', 'html', 'la barra in alto e\' ritirata, rientra con le scritte'],
              ['.cape-rilievo-tela', '.cape-rilievo', 'la tela in cui il bassorilievo viene disegnato']],
     leggo:  [['cape-rilievo', '.cape-rilievo', 'la sezione: senza di lei il file non fa niente']]
   });
