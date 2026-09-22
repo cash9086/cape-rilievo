@@ -61,7 +61,7 @@ in cima a `cape-dust.js`, sotto `lento*`, `luce*`, `pieno*` e `lastra*`.
 | `stampa.png` | la quota della goffratura. Valore alto = piu' in fondo |
 | `stampa-gobba.png` | la PENDENZA del volume, gia' derivata, a un quarto di lato |
 | `stampa-nera.png` | la stampa piatta, se un domani serve senza rilievo |
-| `stampa-grana*.png` | le stesse tre, con la grana della stampa vera dentro le sagome. **Sono quelle in pagina** |
+| `stampa-grana*.png` | le stesse tre, con la grana della stampa vera dentro le sagome. Non in pagina: in pagina c'e' la versione pulita |
 | `stampa-src.jpg` | il manifesto sorgente |
 | `stampa.py` | pulisce il manifesto e rigenera le tre immagini |
 | `cape-rilievo.js` | il vecchio: due nomi e il surfista. Non piu' caricato |
