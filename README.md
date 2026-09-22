@@ -30,18 +30,29 @@ disegna non e' qui: sta in `cape-dust.js`, nella repo `transition`.
 > suoi punti d'atterraggio sono stati cancellati: stanno nella storia di git,
 > al commit `cade712`.
 
-## Come funziona adesso, in tre righe
+> **2026-09-22, sera — il raduno se ne va anche lui.** I pixel che si
+> radunavano al centro erano un secondo movimento sopra l'espansione, e si
+> vedeva; e il bianco che facevano era granuloso, pieno di buchi neri. Adesso
+> nessun pixel cambia strada.
 
-Una parte dei pixel della dust — la meta' circa — invece di andare dritta per
-sempre riceve una **destinazione** dentro un disco al centro dello schermo. Si
-radunano, si addossano, e la loro luce sommata satura in bianco pieno: e' cosi'
-che nasce la pagina su cui la stampa viene impressa. Chi va piu' vicino al
-centro arriva prima, quindi il bianco non compare, **fiorisce** dal mezzo verso
-fuori. La goffratura si disegna subito dopo di loro, nello stesso fotogramma e
-nello stesso contesto, perche' e' un'**ombra** e un'ombra ha bisogno di
-qualcosa sotto su cui posarsi.
+## Come funziona adesso
 
-Tutte le manopole stanno in cima a `cape-dust.js`, sotto `posa*` e `lastra*`.
+Nessun diamante cambia strada. Quelli che in un certo istante stanno dentro
+una forma al centro dello schermo — una superellisse, un'ellisse un po'
+squadrata — si **gonfiano e si accendono** finche' si fondono in bianco
+pieno; verso fuori si sfaldano, perche' ognuno ha la sua soglia sorteggiata.
+La forma parte da un punto e si allarga, quindi il bianco **fiorisce** dal
+mezzo. Sotto di loro c'e' una carta bianca che tappa i buchi, solo dove sono
+gia' fusi.
+
+Dentro quel bianco la stampa si **incide a pressione**: compare tutta
+insieme, prima appena accennata, poi sempre piu' profonda. Si legge sempre
+tutta, per una luce radente che gira piano; il mouse ci aggiunge la sua luce
+e la inclina di qualche grado. Alla fine il bianco si allarga fino ai bordi e
+la lastra torna piatta.
+
+Mentre succede, l'espansione non si ferma: rallenta. Tutte le manopole stanno
+in cima a `cape-dust.js`, sotto `lento*`, `bianco*`, `pieno*` e `lastra*`.
 
 ## I file
 
@@ -51,7 +62,7 @@ Tutte le manopole stanno in cima a `cape-dust.js`, sotto `posa*` e `lastra*`.
 | `stampa-gobba.png` | la PENDENZA del volume, gia' derivata, a un quarto di lato |
 | `stampa-nera.png` | la stampa piatta, se un domani serve senza rilievo |
 | `stampa-src.jpg` | il manifesto sorgente |
-| `stampa.py` | rigenera le tre immagini dal manifesto |
+| `stampa.py` | pulisce il manifesto e rigenera le tre immagini |
 | `cape-rilievo.js` | il vecchio: due nomi e il surfista. Non piu' caricato |
 | `gobba.py` | il volume del vecchio surfista, da `superficie.png` |
 
@@ -66,6 +77,18 @@ Se le rigeneri, aggiorna quello SHA la' dentro.
 python3 stampa.py     # goffratura, gobba e stampa piatta
 ```
 Serve `pillow`, `numpy`, `scipy`. Se cambi il file sorgente, cambia `SRC`.
+
+Si incide **solo la scritta e i due surfisti**: `pulita()` toglie le
+pennellate del fondo e il bordo sporco, che in rilievo diventano rumore. Lo fa
+con una soglia e un'apertura morfologica, piu' due eccezioni scritte con le
+coordinate della sorgente (la tavola da surf, la pennellata accanto alla
+figura seduta): **con un manifesto nuovo quelle coordinate non valgono piu'**.
+
+Il file esce ritagliato sul disegno, con un margine. Lo script stampa quanta
+parte dell'immagine e' disegno (`disegno 0.827 x 0.761`): se rigeneri, ricopia
+quei due numeri in `lastraDisegno` dentro `cape-dust.js`, e anche il formato
+in `lastraFormato`. La misura a schermo della lastra, e del bianco attorno, si
+prende sul disegno.
 
 ## Le due cose che non si deducono leggendo il codice
 

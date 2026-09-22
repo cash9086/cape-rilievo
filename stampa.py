@@ -15,9 +15,24 @@
    SMUSSO e' la larghezza del bordo dell'impronta: il fianco della lettera.
    Stretto = carta rigida, spigolo netto. Largo = carta morbida, bordo
    tondo. E' l'unica manopola che cambia davvero l'aria del risultato.
+
+   SOLO LA SCRITTA E I DUE SURFISTI. Il manifesto ha dietro pennellate di
+   rullo e un bordo sporco: in rilievo diventano rumore, una carta
+   grattata invece di una stampa. pulita() le toglie e lascia le sagome
+   piene. Le sagome sono nere piene, le pennellate grigie e sottili: una
+   soglia e un'apertura morfologica le separano quasi da sole. Restano due
+   eccezioni, scritte a mano qui sotto:
+     - la tavola del surfista e' un contorno sottile come una pennellata,
+       e l'apertura la cancellerebbe: si recupera a parte, per contatto col
+       surfista che la tiene;
+     - accanto alla figura seduta la pennellata e' scura quasi quanto lei:
+       li' la soglia sale.
+   Il file esce ritagliato sul disegno, con un margine: la misura scritta
+   in cape-dust.js (lastraDisegno) e' presa sul disegno, non sul file.
 """
 import numpy as np, os, sys
 from PIL import Image
+from scipy import ndimage as ndi
 from scipy.ndimage import gaussian_filter
 
 QUI   = os.path.dirname(os.path.abspath(__file__))
@@ -25,21 +40,80 @@ SRC   = os.path.join(QUI, 'stampa-src.jpg')
 LARGO = 1600
 
 SMUSSO  = 3.2    # larghezza del bordo dell'impronta, in px del file grande
-GRANA   = 0.55   # quanta della grana del rullo resta nel rilievo
-S_GOBBA = 26.0   # larghezza della gonfiatura sotto le masse
-ALTA    = 2.5    # via il piedistallo (vedi gobba.py)
-PIENO   = 0.030  # pendenza che riempie gli otto bit
+GRANA   = 0.0    # quanta della grana del rullo resta nel rilievo. A zero da
+                 # quando il disegno e' pulito: senza grana da conservare, restava
+                 # solo un gradino lungo i bordi, e in luce radente ogni lettera
+                 # usciva ripassata due volte, come a matita
+S_GOBBA = 26.0   # quanto e' largo il fianco della cupola, dal bordo verso dentro
+PIENO   = 0.2    # pendenza che riempie gli otto bit
 
-def inchiostro(box=None):
+MARGINE = 110    # aria attorno al disegno, in px della sorgente: la lastra
+                 # deve finire su carta liscia, o il bordo del file si legge
+                 # in luce radente come una riga dritta
+
+def disco(r):
+    y, x = np.ogrid[-r:r + 1, -r:r + 1]
+    return x * x + y * y <= r * r
+
+def pulita(ink):
+    """Le sagome piene (scritta, figura seduta, surfista con la tavola),
+       senza le pennellate del fondo ne' il bordo. Coordinate della
+       sorgente 1179x1022: se cambi manifesto, questi numeri non valgono."""
+    pieno = ink > 0.6
+    seduto = np.zeros_like(pieno); seduto[600:900, 380:760] = True
+    pieno = np.where(seduto, ink > 0.8, pieno)
+
+    aperto = ndi.binary_opening(pieno, structure=disco(6))
+    lab, n = ndi.label(aperto)
+    tieni = np.zeros(n + 1, bool)
+    for i, sl in enumerate(ndi.find_objects(lab), 1):
+        area = (lab[sl] == i).sum()
+        h = sl[0].stop - sl[0].start; w = sl[1].stop - sl[1].start
+        # fra la scritta (sopra 470) e le figure (sotto 610) ci sono solo pennellate
+        fascia = sl[0].start > 470 and sl[0].stop < 610
+        if area > 1500 and h > 25 and w / h < 3.5 and not fascia:
+            tieni[i] = True
+    sagome = tieni[lab]
+
+    # i bordi ruvidi delle lettere tornano, le pennellate attaccate no
+    m = sagome.copy()
+    for _ in range(3):
+        m = ndi.binary_dilation(m) & pieno
+
+    # la tavola: il contorno sottile attaccato al surfista
+    box = np.zeros_like(pieno); box[552:830, 750:1075] = True
+    lf, _ = ndi.label((ink > 0.5) & box)
+    ids = np.unique(lf[sagome & box]); ids = ids[ids > 0]
+    tavola = np.isin(lf, ids)
+    tavola[676:712, 750:808] = False      # l'orizzonte che la attraversa
+    m |= tavola
+
+    # i buchini dentro le lettere: in rilievo sarebbero crateri
+    buchi = ndi.binary_fill_holes(m) & ~m
+    lb, nb = ndi.label(buchi)
+    area = ndi.sum(buchi, lb, range(1, nb + 1))
+    m |= np.isin(lb, np.where(area < 500)[0] + 1)
+    return m
+
+def inchiostro():
     im = Image.open(SRC).convert('L')
-    if box: im = im.crop(box)
-    a = im.resize((LARGO, int(round(LARGO * im.height / im.width))), Image.LANCZOS)
-    ink = 1.0 - np.asarray(a).astype(np.float32) / 255.0
-    # la carta non e' mai bianca pura in una scansione: si toglie il fondo
-    return np.clip((ink - 0.06) / 0.88, 0, 1)
+    ink = 1.0 - np.asarray(im).astype(np.float32) / 255.0
+    # il margine puo' uscire dalla sorgente (a sinistra il disegno e' a 61 px
+    # dal bordo): fuori e' carta, quindi si aggiunge carta
+    m = np.pad(pulita(ink), MARGINE)
+    ys, xs = np.where(m)
+    x0 = xs.min() - MARGINE; x1 = xs.max() + 1 + MARGINE
+    y0 = ys.min() - MARGINE; y1 = ys.max() + 1 + MARGINE
+    # quanta parte dell'immagine e' disegno: cape-dust.js misura la lastra
+    # sul disegno, non sul margine (lastraDisegno)
+    print('disegno %.3f x %.3f dell\'immagine' % ((xs.max() + 1 - xs.min()) / (x1 - x0),
+                                               (ys.max() + 1 - ys.min()) / (y1 - y0)))
+    m = Image.fromarray((m[y0:y1, x0:x1] * 255).astype(np.uint8))
+    a = m.resize((LARGO, int(round(LARGO * m.height / m.width))), Image.LANCZOS)
+    return np.asarray(a).astype(np.float32) / 255.0
 
-def scrivi(nome, box=None):
-    ink = inchiostro(box)
+def scrivi(nome):
+    ink = inchiostro()
     H, W = ink.shape
 
     # ——— la lastra: l'inchiostro alzato, col suo smusso ———
@@ -50,10 +124,17 @@ def scrivi(nome, box=None):
     Image.fromarray(np.clip(np.rint(mappa * 255), 0, 255).astype(np.uint8)) \
          .save(os.path.join(QUI, nome + '.png'), optimize=True)
 
-    # ——— la gobba: la gonfiatura larga sotto le masse ———
-    massa = gaussian_filter(ink, S_GOBBA, mode='nearest')
-    massa = (massa / max(massa.max(), 1e-6)) ** 0.75
-    massa = massa - gaussian_filter(massa, S_GOBBA * ALTA, mode='nearest')
+    # ——— la gobba: il volume DENTRO le sagome ———
+    # Una cupola in ogni sagoma: sale dal bordo verso l'interno per S_GOBBA
+    # pixel e poi resta piana, e fuori vale zero. Prima era la massa sfocata
+    # meno una sua sfocatura piu' larga, e quel passa-alto lasciava attorno a
+    # ogni figura un anello: finche' la luce era un cerchio attorno al mouse
+    # si notava poco, con una luce su tutta la lastra si leggeva come un
+    # contorno fantasma. Una cupola fatta con la distanza dal bordo non puo'
+    # uscire dalla sagoma, per costruzione.
+    dentro = ndi.distance_transform_edt(ink > 0.5)
+    massa = np.sin(np.minimum(dentro / S_GOBBA, 1.0) * np.pi / 2)
+    massa = gaussian_filter(massa, 1.5, mode='nearest') * 2.0 - 1.0
     w, h = W // 4, H // 4
     p = np.asarray(Image.fromarray(np.clip((massa * 0.5 + 0.5) * 255, 0, 255).astype(np.uint8))
                    .resize((w, h), Image.LANCZOS)).astype(np.float32) / 255.0
@@ -79,6 +160,4 @@ def scrivi(nome, box=None):
              os.path.getsize(os.path.join(QUI, nome + '-nera.png')) // 1024))
     return W, H
 
-im = Image.open(SRC)
-scrivi('stampa')                                                  # tutto: testo + sagome
-scrivi('sagome', (0, int(im.height * .43), im.width, im.height))  # solo la fascia bassa
+scrivi('stampa')
