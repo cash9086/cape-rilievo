@@ -44,6 +44,8 @@ GRANA   = 0.0    # quanta della grana del rullo resta nel rilievo. A zero da
                  # quando il disegno e' pulito: senza grana da conservare, restava
                  # solo un gradino lungo i bordi, e in luce radente ogni lettera
                  # usciva ripassata due volte, come a matita
+GRANA_VERA = 0.55  # la stessa, per la versione con la grana della stampa vera:
+                   # li' c'e' una trama da conservare, e lo smusso la cancellerebbe
 S_GOBBA = 26.0   # quanto e' largo il fianco della cupola, dal bordo verso dentro
 PIENO   = 0.2    # pendenza che riempie gli otto bit
 
@@ -95,31 +97,39 @@ def pulita(ink):
     m |= np.isin(lb, np.where(area < 500)[0] + 1)
     return m
 
-def inchiostro():
+def inchiostro(grana=False):
     im = Image.open(SRC).convert('L')
     ink = 1.0 - np.asarray(im).astype(np.float32) / 255.0
     # il margine puo' uscire dalla sorgente (a sinistra il disegno e' a 61 px
     # dal bordo): fuori e' carta, quindi si aggiunge carta
-    m = np.pad(pulita(ink), MARGINE)
-    ys, xs = np.where(m)
+    m = pulita(ink)
+    if grana:
+        # la grana della stampa vera: dentro le sagome l'inchiostro com'e' —
+        # coi suoi bianchi, i bordi mangiati, la trama del rullo — e fuori
+        # niente, come nella versione pulita
+        vero = np.clip((ink - 0.06) / 0.88, 0, 1)
+        dentro = ndi.binary_dilation(m, structure=disco(2))
+        m = np.where(dentro, vero, 0.0)
+    m = np.pad(m, MARGINE)
+    ys, xs = np.where(m > 0.5)
     x0 = xs.min() - MARGINE; x1 = xs.max() + 1 + MARGINE
     y0 = ys.min() - MARGINE; y1 = ys.max() + 1 + MARGINE
     # quanta parte dell'immagine e' disegno: cape-dust.js misura la lastra
     # sul disegno, non sul margine (lastraDisegno)
     print('disegno %.3f x %.3f dell\'immagine' % ((xs.max() + 1 - xs.min()) / (x1 - x0),
                                                (ys.max() + 1 - ys.min()) / (y1 - y0)))
-    m = Image.fromarray((m[y0:y1, x0:x1] * 255).astype(np.uint8))
+    m = Image.fromarray(np.clip(m[y0:y1, x0:x1] * 255, 0, 255).astype(np.uint8))
     a = m.resize((LARGO, int(round(LARGO * m.height / m.width))), Image.LANCZOS)
     return np.asarray(a).astype(np.float32) / 255.0
 
-def scrivi(nome):
-    ink = inchiostro()
+def scrivi(nome, grana=False):
+    ink = inchiostro(grana)
     H, W = ink.shape
 
     # ——— la lastra: l'inchiostro alzato, col suo smusso ———
     alto  = gaussian_filter(ink, SMUSSO, mode='nearest')
-    grana = ink - gaussian_filter(ink, SMUSSO * 3, mode='nearest')
-    alto  = np.clip(alto + grana * GRANA, 0, 1)
+    dett  = ink - gaussian_filter(ink, SMUSSO * 3, mode='nearest')
+    alto  = np.clip(alto + dett * (GRANA_VERA if grana else GRANA), 0, 1)
     mappa = 1.0 - alto                                  # valore alto = piu' in fondo
     Image.fromarray(np.clip(np.rint(mappa * 255), 0, 255).astype(np.uint8)) \
          .save(os.path.join(QUI, nome + '.png'), optimize=True)
@@ -161,3 +171,4 @@ def scrivi(nome):
     return W, H
 
 scrivi('stampa')
+scrivi('stampa-grana', grana=True)   # la stessa, con la grana della stampa vera

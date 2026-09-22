@@ -37,22 +37,22 @@ disegna non e' qui: sta in `cape-dust.js`, nella repo `transition`.
 
 ## Come funziona adesso
 
-Nessun diamante cambia strada. Quelli che in un certo istante stanno dentro
-una forma al centro dello schermo — una superellisse, un'ellisse un po'
-squadrata — si **gonfiano e si accendono** finche' si fondono in bianco
-pieno; verso fuori si sfaldano, perche' ognuno ha la sua soglia sorteggiata.
-La forma parte da un punto e si allarga, quindi il bianco **fiorisce** dal
-mezzo. Sotto di loro c'e' una carta bianca che tappa i buchi, solo dove sono
-gia' fusi.
+Nessun diamante cambia strada. Al centro dello schermo c'e' un **campo di
+luce** senza bordo, che cala con la distanza come un bagliore e nel tempo
+cresce di intensita': i diamanti prendono la luce che gli arriva, si
+accendono e si gonfiano, e dove e' tanta saturano in bianco pieno, con un
+alone attorno. Il bianco non si allarga come una forma: si accende.
 
-Dentro quel bianco la stampa si **incide a pressione**: compare tutta
-insieme, prima appena accennata, poi sempre piu' profonda. Si legge sempre
-tutta, per una luce radente che gira piano; il mouse ci aggiunge la sua luce
-e la inclina di qualche grado. Alla fine il bianco si allarga fino ai bordi e
-la lastra torna piatta.
+Dentro quel bianco la stampa e' **scavata** nella carta: la parete dalla parte
+della luce getta un'ombra sul fondo, e il fondo e' un filo piu' scuro, quindi
+le sagome si leggono piene e non come un disegno a linee. Si scava a
+pressione (prima appena accennata, poi piu' profonda), si legge sempre tutta
+per una luce radente che gira piano, e il mouse ci aggiunge la sua luce e la
+inclina di qualche grado. Alla fine la luce satura lo schermo e la lastra
+torna piatta.
 
 Mentre succede, l'espansione non si ferma: rallenta. Tutte le manopole stanno
-in cima a `cape-dust.js`, sotto `lento*`, `bianco*`, `pieno*` e `lastra*`.
+in cima a `cape-dust.js`, sotto `lento*`, `luce*`, `pieno*` e `lastra*`.
 
 ## I file
 
@@ -61,6 +61,7 @@ in cima a `cape-dust.js`, sotto `lento*`, `bianco*`, `pieno*` e `lastra*`.
 | `stampa.png` | la quota della goffratura. Valore alto = piu' in fondo |
 | `stampa-gobba.png` | la PENDENZA del volume, gia' derivata, a un quarto di lato |
 | `stampa-nera.png` | la stampa piatta, se un domani serve senza rilievo |
+| `stampa-grana*.png` | le stesse tre, con la grana della stampa vera dentro le sagome. **Sono quelle in pagina** |
 | `stampa-src.jpg` | il manifesto sorgente |
 | `stampa.py` | pulisce il manifesto e rigenera le tre immagini |
 | `cape-rilievo.js` | il vecchio: due nomi e il surfista. Non piu' caricato |
