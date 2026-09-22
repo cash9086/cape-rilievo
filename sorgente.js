@@ -7,8 +7,8 @@
      1. PIANTA LE DUE MAPPE dentro la sezione. Sempre: telefono compreso,
         anche senza WebGL, anche con le animazioni ridotte.
      2. LE DISEGNA. La prima volta che la sezione entra nello schermo ogni
-        singola strada viene tracciata da un capo all'altro, dal centro
-        verso il bordo. Nessuna riga compare in dissolvenza. Dalla seconda
+        singolo tratto viene tracciato da un capo all'altro, DAL BASSO IN
+        SU. Nessuna riga compare in dissolvenza. Dalla seconda
         volta in poi non si ridisegna: resta solo la dissolvenza della
         mappa intera. Anche questo sempre, tranne con "riduci animazioni"
         acceso: li' le mappe sono gia' li' e basta.
@@ -169,9 +169,13 @@
      IL DATO
      Ogni voce e' [classe, fascia, percorso]. La classe dice il peso del
      tratto (v = vie, a = assi, p = principali, q = acque), la fascia dice
-     quanto e' lontana dal centro — le mappe escono gia' ordinate cosi' —
+     a che quota sta — il dato esce gia' ordinato cosi', dal basso in su —
      e il percorso e' scritto come un path SVG ridotto all'osso: M sposta,
-     l tira una riga, tutto a numeri interi.                              */
+     l tira una riga, tutto a numeri interi.
+
+     Il vocabolario del codice dice ancora "strade": le due piante erano
+     le mappe di Milano e Parigi. Adesso sono il Duomo e la Tour Eiffel, e
+     una "strada" e' un tratto di penna. Cambia cosa disegna, non come.   */
 
   var MAPPE = {
     milano: __MILANO__,
@@ -323,10 +327,11 @@
   }
 
   /* ══ 2. il disegno ═════════════════════════════════════════════════════
-     La prima volta che la sezione entra nello schermo, ogni singola strada
-     viene tracciata da un capo all'altro. Si parte dalle strade del centro
-     e si arriva a quelle del bordo: le fasce partono una dopo l'altra,
-     sfasate, e dentro ogni fascia le strade escono in fila.
+     La prima volta che la sezione entra nello schermo, ogni singolo tratto
+     viene tracciato da un capo all'altro. Si parte da terra e si sale fino
+     alla punta: le fasce partono una dopo l'altra, sfasate, e dentro ogni
+     fascia i tratti escono in fila. Un monumento si alza, non si allarga:
+     per questo l'ordine non e' piu' quello delle mappe.
 
      Niente compare in dissolvenza. La dissolvenza c'e' solo dalla seconda
      volta in poi, quando la mappa e' gia' disegnata e la sezione rientra

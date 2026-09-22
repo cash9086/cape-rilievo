@@ -1,56 +1,48 @@
-"""Forme piene -> asse della strada -> polilinee ordinate dal centro.
+"""Come assi2, ma distingue due cose che non si possono trattare uguale:
 
-   Lo scheletro morfologico riduce ogni strada piena alla sua linea di
-   mezzo: da li' si seguono i pixel e si ricavano strade vere, che si
-   possono tracciare da un capo all'altro.
+   - i NASTRI (i tratti di penna, larghi due pixel): si riducono all'asse,
+     come le strade di una mappa;
+   - le MACCHIE (i portali del Duomo, le ombre piene): NON si riducono
+     all'asse — un rettangolo pieno ridotto alla linea di mezzo diventa
+     una X, ed e' esattamente lo scarabocchio che si vedeva. Di quelle si
+     prende il CONTORNO, che e' come un disegnatore le avrebbe fatte.
+
+   Il resto — semplificazione, classi per calibro, ordine dal basso in su —
+   e' identico.
 """
-import math, json
+import math, os, sys
 import numpy as np
 from PIL import Image
-from skimage.morphology import skeletonize
+from skimage.morphology import skeletonize, disk
+from skimage.measure import find_contours
+from scipy.ndimage import distance_transform_edt, binary_dilation
 
+QUI = '/home/user/cape-rilievo/'
 LATO_OUT = 1000
 FASCE = 22
-
-def scheletro(png, soglia=190):
-    a = np.asarray(Image.open(png).convert('L'))
-    b = a < soglia
-    return skeletonize(b), b
-
 VICINI = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
 
 def polilinee(sk):
-    """cammina sui pixel dello scheletro e li incatena in strade"""
-    H,W = sk.shape
     px = {(y,x) for y,x in zip(*np.where(sk))}
     grado = {}
     for (y,x) in px:
-        n=[(y+dy,x+dx) for dy,dx in VICINI if (y+dy,x+dx) in px]
-        grado[(y,x)]=n
-    usati=set()
-    strade=[]
-
+        grado[(y,x)] = [(y+dy,x+dx) for dy,dx in VICINI if (y+dy,x+dx) in px]
+    usati=set(); strade=[]
     def cammina(p, primo):
         via=[p, primo]; usati.add((p,primo)); usati.add((primo,p))
         corr=primo; prec=p
         while True:
             cand=[q for q in grado[corr] if q!=prec and (corr,q) not in usati]
             if len(grado[corr])!=2 or not cand: break
-            q=cand[0]
-            usati.add((corr,q)); usati.add((q,corr))
+            q=cand[0]; usati.add((corr,q)); usati.add((q,corr))
             via.append(q); prec, corr = corr, q
         return via
-
-    # prima dai nodi (estremi e incroci), poi quel che resta (anelli chiusi)
-    nodi=[p for p in px if len(grado[p])!=2]
-    for p in nodi:
+    for p in [p for p in px if len(grado[p])!=2]:
         for q in grado[p]:
-            if (p,q) in usati: continue
-            strade.append(cammina(p,q))
+            if (p,q) not in usati: strade.append(cammina(p,q))
     for p in px:
         for q in grado[p]:
-            if (p,q) in usati: continue
-            strade.append(cammina(p,q))
+            if (p,q) not in usati: strade.append(cammina(p,q))
     return strade
 
 def semplifica(pts, eps):
@@ -68,20 +60,6 @@ def semplifica(pts, eps):
     if dmax>eps: return semplifica(pts[:idx+1],eps)[:-1]+semplifica(pts[idx:],eps)
     return [pts[0],pts[-1]]
 
-def calibri(pieno):
-    """per ogni pixel, quanto dista dal bordo della forma piena: e' meta'
-       della larghezza della strada in quel punto"""
-    from scipy.ndimage import distance_transform_edt
-    return distance_transform_edt(pieno)
-
-def spessore(dist, via):
-    """il calibro della strada: la mediana lungo tutto il suo percorso,
-       non un punto solo — un punto solo cade spesso su un incrocio e
-       misura l'incrocio invece della strada"""
-    v=[dist[y,x] for (y,x) in via]
-    v.sort()
-    return v[len(v)//2]
-
 def lunghezza(p):
     return sum(math.hypot(p[i+1][0]-p[i][0], p[i+1][1]-p[i][1]) for i in range(len(p)-1))
 
@@ -97,36 +75,48 @@ def d_attr(pts):
         px,py=x,y
     return ''.join(out).replace(' -','-')
 
-def lavora(nome, eps=0.9, min_lung=3.0):
-    sk, pieno = scheletro(nome+'_raster.png')
-    dist = calibri(pieno)
-    vie = polilinee(sk)
-    H,W = sk.shape
+def lavora(nome, soglia_blob=8, eps=0.9, min_lung=3.0, min_contorno=26.0):
+    a = np.asarray(Image.open(QUI+nome+'_raster.png').convert('L'))
+    pieno = a < 190
+    dist = distance_transform_edt(pieno)
+
+    nucleo = dist > soglia_blob
+    if nucleo.any():
+        macchia = binary_dilation(nucleo, structure=disk(int(soglia_blob)+1)) & pieno
+    else:
+        macchia = np.zeros_like(pieno)
+    nastro = pieno & ~macchia
+
+    W = pieno.shape[1]
     k = LATO_OUT / W
+
+    # ——— i nastri: asse
+    sk = skeletonize(nastro)
     fuori=[]
-    for via in vie:
+    for via in polilinee(sk):
         if len(via) < 3: continue
-        sp = spessore(dist, via)
-        pts = [(x*k, y*k) for (y,x) in via]
-        pts = semplifica(pts, eps)
+        v=sorted(dist[y,x] for (y,x) in via); sp=v[len(v)//2]
+        pts = semplifica([(x*k, y*k) for (y,x) in via], eps)
         if lunghezza(pts) < min_lung: continue
         fuori.append((pts, sp))
-    # Classe per RANGO, non per soglia. In una mappa a linee i calibri sono
-    # quasi tutti uguali (uno o due pixel): con una soglia finiscono tutte
-    # nello stesso gruppo e la gerarchia sparisce. Ordinando per calibro e
-    # poi per lunghezza, le arterie restano in cima comunque.
+
+    # ——— le macchie: contorno
+    contorni=[]
+    for c in find_contours(macchia.astype(float), 0.5):
+        pts = semplifica([(x*k, y*k) for (y,x) in c], eps)
+        if lunghezza(pts) < min_contorno: continue
+        contorni.append(pts)
+
     fuori.sort(key=lambda t: (t[1], lunghezza(t[0])))
     n = len(fuori)
     gruppi = {'v': [t[0] for t in fuori[:int(n*0.74)]],
-              'a': [t[0] for t in fuori[int(n*0.74):int(n*0.93)]],
+              'a': [t[0] for t in fuori[int(n*0.74):int(n*0.93)]] + contorni,
               'p': [t[0] for t in fuori[int(n*0.93):]]}
-    q1 = fuori[int(n*0.74)][1] if n else 0
-    q2 = fuori[int(n*0.93)][1] if n else 0
-    C = LATO_OUT/2
-    raggio = lambda p: sum(math.hypot(q[0]-C, q[1]-C) for q in p)/len(p)
+
+    quota = lambda p: sum(q[1] for q in p)/len(p)
     voci=[]; tot=0
     for cls in ('v','a','p'):
-        linee = sorted(gruppi[cls], key=raggio)
+        linee = sorted(gruppi[cls], key=quota, reverse=True)
         if not linee: continue
         per = max(1, math.ceil(len(linee)/FASCE))
         for f in range(FASCE):
@@ -135,11 +125,15 @@ def lavora(nome, eps=0.9, min_lung=3.0):
             voci.append('["%s",%d,"%s"]'%(cls, f, ''.join(d_attr(l) for l in fetta)))
             tot += len(fetta)
     dato='['+','.join(voci)+']'
-    open(nome+'.js.txt','w').write(dato)
-    print('%-7s strade %5d  (v %d  a %d  p %d)  calibri %.1f/%.1f  dato %6d car'%(
-        nome, tot, len(gruppi['v']), len(gruppi['a']), len(gruppi['p']), q1, q2, len(dato)))
+    open(QUI+nome+'.js.txt','w').write(dato)
+    print('%-7s tratti %5d  (nastri v %d a %d p %d | contorni %d)  dato %6d car'%(
+        nome, tot, len(gruppi['v']), len(gruppi['a'])-len(contorni), len(gruppi['p']),
+        len(contorni), len(dato)))
 
-# Milano viene da un disegno piu' rado del parigino: tiene anche i
-# frammenti corti, altrimenti resta magra.
-lavora('milano', eps=0.7, min_lung=1.6)
-lavora('parigi', eps=0.95, min_lung=3.4)
+# La soglia e' diversa apposta. Il Duomo ha portali e finestre di nero
+# pieno larghi decine di pixel: a 8 si staccano tutti. La torre e' quasi
+# tutta traliccio sottile, e a 8 le si contornavano anche i nodi del
+# traliccio — venivano delle bollicine. A 17 le resta contornata solo
+# l'ombra a terra, che e' l'unica macchia vera che ha.
+lavora('milano', soglia_blob=8,  eps=0.9, min_lung=3.0)
+lavora('parigi', soglia_blob=17, eps=0.9, min_lung=3.0)
