@@ -25,7 +25,7 @@ resto e' qui.
 | `superficie.png` | la quota del surfista inciso: nero = superficie, bianco = fondo del solco |
 | `superficie.py` | la rigenera dal disegno a tratto |
 | `milano.js.txt` `parigi.js.txt` | il dato dei due disegni: `[classe, fascia, percorso]` |
-| `milano.svg` `parigi.svg` | gli stessi disegni come SVG, solo per guardarli |
+| `milano.svg` `parigi.svg` | gli stessi disegni come SVG, solo per guardarli (col pallore `.85` del CSS) |
 | `rasterizza.py` + `assi.py` | **la catena vera**: da un SVG a penna ai tratti tracciabili |
 | `duomo-...-748.svg` `Gemini_...-1uvq41.svg` | i due disegni sorgente |
 
