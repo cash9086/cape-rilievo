@@ -1,87 +1,80 @@
 # cape-rilievo
 
-La seconda meta' della sezione dust di **The Cape Studio**: una stampa
-serigrafica goffrata a secco che si compone dentro il cielo di diamanti,
-mentre il campo si ferma, e che si dissolve quando il campo riparte e il
-bianco vince.
+Le due immagini della **stampa goffrata a secco** che compare dentro la sezione
+dust di **The Cape Studio**, e gli script che le generano. Il codice che le
+disegna non e' qui: sta in `cape-dust.js`, nella repo `transition`.
 
-> **2026-09-22 — la sezione e' cambiata di natura.** Prima era una sezione a
-> se' (`.cape-rilievo`) con due nomi di citta' e un surfista inciso. Adesso e'
-> `cape-radura.js`, e vive DENTRO al pannello incollato della dust, sullo
-> stesso binario. Il vecchio `cape-rilievo.js` resta nella repo ma non lo
-> carica piu' nessuno.
+> **2026-09-22 — due giri di ripensamenti, e il secondo ha vinto.**
 >
-> **Perche'.** La sezione aveva due soggetti giganti — due nomi da 200 px e un
-> disegno alto un metro — e una pagina ne regge uno. E quel disegno era uno
-> schizzo a tratto: ingrandito restava uno schizzo. La stampa serigrafica ha
-> il testo DENTRO l'inchiostro, quindi tipografia e immagine sono un oggetto
-> solo e il problema smette di esistere.
+> Prima questa era una sezione a se' (`.cape-rilievo`): due nomi di citta' e un
+> surfista inciso. Aveva due soggetti giganti e una pagina ne regge uno; e
+> quel disegno era uno schizzo a tratto, che ingrandito resta uno schizzo.
+>
+> Poi e' diventata `cape-radura.js`: una seconda tela WebGL appoggiata sopra
+> quella della dust, che ci dipingeva sopra un cerchio bianco col bordo
+> sfrangiato e ci faceva atterrare dentro 147.000 diamanti suoi. **Anche
+> quella era sbagliata**, per due ragioni che valgono piu' di qualunque
+> taratura:
+>
+> 1. **due motori non vanno mai d'accordo.** Due tele, due contesti, due
+>    letture del progresso, due miscele diverse: ogni cosa da tenere allineata
+>    a mano e' una cosa che di li' a poco non lo sara' piu'.
+> 2. **il bianco lo facevano gia' i diamanti della dust.** A due terzi della
+>    sua corsa il campo ha il centro saturo di bianco — perche' li' le
+>    particelle si sono addossate — e i bordi neri, perche' li' si sono
+>    diradate. Dipingerci sopra un cerchio era una seconda cosa che faceva lo
+>    stesso lavoro, e vinceva la peggiore: un cerchio dipinto ha un bordo, e
+>    qualunque bordo si disegni e' peggio di quello.
+>
+> Adesso e' **tutto dentro cape-dust.js**, un motore solo. `cape-radura.js` e i
+> suoi punti d'atterraggio sono stati cancellati: stanno nella storia di git,
+> al commit `cade712`.
 
-## La cosa da capire prima di tutte: il bianco non lo dipinge nessuno
+## Come funziona adesso, in tre righe
 
-A due terzi della sua corsa il campo della dust e' gia' esattamente quello che
-serve — **il centro saturo di bianco** perche' li' le particelle si sono
-addossate, **i bordi ancora neri** perche' li' si sono diradate.
+Una parte dei pixel della dust — la meta' circa — invece di andare dritta per
+sempre riceve una **destinazione** dentro un disco al centro dello schermo. Si
+radunano, si addossano, e la loro luce sommata satura in bianco pieno: e' cosi'
+che nasce la pagina su cui la stampa viene impressa. Chi va piu' vicino al
+centro arriva prima, quindi il bianco non compare, **fiorisce** dal mezzo verso
+fuori. La goffratura si disegna subito dopo di loro, nello stesso fotogramma e
+nello stesso contesto, perche' e' un'**ombra** e un'ombra ha bisogno di
+qualcosa sotto su cui posarsi.
 
-Un primo tentativo ci dipingeva sopra un cerchio bianco col bordo sfrangiato
-da un rumore. Era brutto, e non per come era tarato: perche' erano **due cose
-che facevano lo stesso lavoro**, e vinceva la peggiore. Un cerchio dipinto ha
-un bordo, e qualunque bordo si disegni e' peggio di quello che fanno le
-particelle diradandosi.
-
-Quindi non c'e' nessuna radura da disegnare. C'e' una **pausa**, che sta in
-`cape-dust.js`: il progresso della dust si pianta in quello stato per un
-quarto del binario — le particelle restano dove sono e continuano a
-scintillare — e dentro quella pausa entra la lastra.
-
-## I quattro tempi
-
-| sul binario | cosa succede |
-|---|---|
-| 0 → 0.55 | la dust fa il suo: la foto si sbriciola, il campo si allarga e si accende |
-| **0.55 → 0.78** | **la sosta**: il progresso della dust si pianta a 0.66 del suo spettacolo |
-| 0.53 → 0.70 | i diamanti convergono sull'inchiostro e si posano; la lastra si compone dal basso |
-| 0.70 → 0.80 | la lastra resta intera: e' li' che la luce del puntatore la taglia |
-| 0.78 → 1 | il campo riparte, si allarga, il bianco chiude. La lastra si dissolve (0.80 → 0.90) |
-
-I numeri della lastra stanno in cima a `cape-radura.js`, quelli della sosta in
-`cape-dust.js`. **Vanno tenuti d'accordo**: la lastra deve stare dentro alla
-pausa, se no si compone mentre il cielo si sta ancora allargando.
+Tutte le manopole stanno in cima a `cape-dust.js`, sotto `posa*` e `lastra*`.
 
 ## I file
 
 | file | cos'e' |
 |---|---|
-| `cape-radura.js` | **quello che gira**: i diamanti che si posano e la lastra goffrata |
-| `cape-rilievo.js` | il vecchio: due nomi e il surfista inciso. Non piu' caricato |
 | `stampa.png` | la quota della goffratura. Valore alto = piu' in fondo |
 | `stampa-gobba.png` | la PENDENZA del volume, gia' derivata, a un quarto di lato |
-| `stampa-nera.png` | la stampa piatta: e' quella che si vede sotto i 992 px |
-| `atterraggi.png` | 147.456 punti d'arrivo, due righe per diamante, sedici bit a coordinata |
+| `stampa-nera.png` | la stampa piatta, se un domani serve senza rilievo |
 | `stampa-src.jpg` | il manifesto sorgente |
-| `stampa.py` | rigenera goffratura + gobba + stampa piatta dal manifesto |
-| `atterraggi.py` | rigenera i punti d'arrivo |
+| `stampa.py` | rigenera le tre immagini dal manifesto |
+| `cape-rilievo.js` | il vecchio: due nomi e il surfista. Non piu' caricato |
 | `gobba.py` | il volume del vecchio surfista, da `superficie.png` |
+
+`cape-dust.js` punta a queste immagini con un indirizzo jsDelivr **pinnato a
+uno SHA** (`I.lastraBase`): a `@main` jsDelivr le tiene in cache fino a una
+settimana e si finisce a guardare una versione vecchia senza capire perche'.
+Se le rigeneri, aggiorna quello SHA la' dentro.
 
 ## Cambiare il manifesto
 
 ```
-python3 stampa.py       # goffratura, gobba e stampa piatta
-python3 atterraggi.py   # i punti dove cadono i diamanti
+python3 stampa.py     # goffratura, gobba e stampa piatta
 ```
-Serve `pillow`, `numpy`, `scipy`. Poi si committa e si aggiorna lo SHA nel tag
-`<script>`: le immagini seguono da sole, perche' `cape-radura.js` ricava il
-proprio indirizzo da `document.currentScript`. Se cambi il file sorgente,
-cambia `SRC` in tutti e due gli script.
+Serve `pillow`, `numpy`, `scipy`. Se cambi il file sorgente, cambia `SRC`.
 
-## Le tre cose che non si deducono leggendo il codice
+## Le due cose che non si deducono leggendo il codice
 
-**1. Il segno del rilievo e' al contrario del surfista.** Quello era un
-disegno a TRATTO, e il rilievo giusto per un tratto e' un solco inciso. Questa
-e' una stampa a SAGOME PIENE, e il rilievo giusto e' un'IMPRESSIONE: la carta
-schiacciata dove batte l'inchiostro. Quindi l'inchiostro non si scava, si
-ALZA — `mappa = 1 - inchiostro`. Sbagliare questo segno non da' errore: da' un
-risultato che sembra giusto e ha le ombre dalla parte sbagliata.
+**1. Il segno del rilievo e' al contrario di un'incisione.** Un disegno a
+TRATTO si scava, e il rilievo giusto e' un solco. Questa e' una stampa a SAGOME
+PIENE, e il rilievo giusto e' un'IMPRESSIONE: la carta schiacciata dove batte
+l'inchiostro. L'inchiostro non si scava, si ALZA — `mappa = 1 - inchiostro`.
+Sbagliare questo segno non da' errore: da' un risultato che sembra giusto e ha
+le ombre dalla parte sbagliata.
 
 **2. Sul bianco pieno la luce puo' solo fare OMBRA.** Sopra il bianco non c'e'
 niente da schiarire. Non e' una rinuncia: e' anche quello che toglie il
@@ -89,38 +82,6 @@ rettangolo — dipingendo anche il bianco si vedrebbe il riquadro della lastra
 stampato sulla pagina. (Era il bug del 22 settembre: gli angoli stavano a 242
 invece che a 255, e quel velo da tredici punti steso su tutta la lastra si
 leggeva come un bordo.)
-
-**3. I diamanti della radura sono ADDITIVI, come quelli della dust.** La loro
-luce si deve sommare: e' addossandosi che fanno il bianco. La lastra invece si
-disegna con "sopra" e l'alfa premoltiplicata, perche' lei deve scurire. Due
-miscele diverse nello stesso fotogramma, una per ciascun disegno.
-
-## L'innesto con la dust
-
-`cape-dust.js` ha guadagnato quattro parametri, e a `coda: 0` si comporta
-esattamente come prima:
-
-- **`coda`** — dice che l'ultimo tratto del binario non e' suo.
-- **`sostaDa` / `sostaA` / `sostaQuota`** — dove il progresso si pianta, dove
-  riparte, e a che punto del proprio spettacolo. `sostaQuota: 0.66` e' **il
-  numero da tarare**: e' "quanto e' avanti il campo quando si ferma", cioe'
-  quanto grande e' la macchia bianca al centro.
-
-La sua tendina bianca finale resta accesa: e' lei che chiude, come ha sempre
-fatto. La barra in alto invece rientra col progresso del binario INTERO e non
-piu' col suo: dentro alla sosta non deve esserci, perche' li' c'e' una pagina
-stampata e non un sito. L'interfaccia torna quando arriva lo studio-hero.
-
-Il binario passa da **600vh a 820vh** (480 a 660 su telefono): e' il conto che
-tiene la prima parte della dust a velocita' quasi identica e lascia due
-schermate scarse di pausa.
-
-## Sotto i 992 px
-
-Non parte niente: niente WebGL, e soprattutto nessun puntatore da seguire, e
-una goffratura che non si puo' scoprire e' solo peso scaricato per niente. Al
-suo posto `stampa-nera.png`, che compare e sparisce nella stessa finestra. Il
-bianco sotto ce l'ha gia' messo la dust.
 
 ---
 
