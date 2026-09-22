@@ -66,6 +66,9 @@
     largaDa:  0.30, largaA:  0.60,   /* si allarga per far posto alla lastra */
     posaDa:   0.30, posaA:   0.62,   /* i diamanti atterrano e compongono */
     sostaA:   0.80,                  /* fin qui la lastra resta */
+    fineA:    0.92,                  /* qui il bianco e' pieno: l'ultimo tratto
+                                        del binario e' carta ferma, ed e' li'
+                                        che lo studio-hero entra senza stacco */
     sfasa:    0.55,                  /* quanta parte della finestra d'atterraggio
                                         separa il primo diamante dall'ultimo:
                                         e' questo che fa salire la lastra da
@@ -262,19 +265,24 @@
   var VS_LASTRA = HEAD + [
     "uniform vec2  uMezzo;",     /* mezza larghezza e mezza altezza, in unita' di schermo */
     "uniform vec2  uCentro;",
-    "uniform float uAng, uGiroY, uGiroX, uFuga, uZ;",
+    "uniform float uGiroY, uGiroX, uFuga, uZ, uSchermo;",
     "out vec2 vUv;",
     "void main(){",
     "  vec2 q = vec2(float(gl_VertexID & 1), float((gl_VertexID >> 1) & 1));",
     "  vUv = q;",
-    "  vec3 p = vec3((q - 0.5) * uMezzo * 2.0, 0.0);",
+    /* SI RUOTA IN ALTEZZE DI SCHERMO, tutte e tre le assi nella stessa
+       unita'. La x arriva come frazione della larghezza: se la si ruota
+       cosi' com'e', mescolandola alla z, la lastra si deforma invece di
+       girare. Si converte prima, si riconverte dopo. */
+    "  vec3 p = vec3((q.x - 0.5) * uMezzo.x * 2.0 * uSchermo,",
+    "                (q.y - 0.5) * uMezzo.y * 2.0, 0.0);",
     "  float cy = cos(uGiroY), sy = sin(uGiroY);",
     "  p = vec3(p.x * cy + p.z * sy, p.y, -p.x * sy + p.z * cy);",
     "  float cx = cos(uGiroX), sx = sin(uGiroX);",
     "  p = vec3(p.x, p.y * cx - p.z * sx, p.y * sx + p.z * cx);",
     "  p.z += uZ;",
     "  float k = uFuga / (uFuga + p.z);",
-    "  vec2 s = uCentro + p.xy * k;",
+    "  vec2 s = uCentro + vec2(p.x / uSchermo, p.y) * k;",
     "  gl_Position = vec4(s * 2.0 - 1.0, 0.0, 1.0);",
     "}"
   ].join("\n");
@@ -418,7 +426,7 @@
       ["uPunti", "uLato", "uP", "uPosaDa", "uPosaDur", "uSfasa", "uLiberi", "uTempo",
        "uPunto", "uEnne", "uBokeh", "uLastra", "uRaggio", "uMorbido", "uEroso", "uAspetto"]);
     var lastra = programma(gl, VS_LASTRA, FS_LASTRA,
-      ["uMezzo", "uCentro", "uGiroY", "uGiroX", "uFuga", "uZ",
+      ["uMezzo", "uCentro", "uGiroY", "uGiroX", "uFuga", "uZ", "uSchermo",
        "uMappa", "uGobba", "uTexel", "uLuceA", "uLuceB", "uLuceC",
        "uAspetto", "uForza", "uMassa", "uDiffusa", "uLucida", "uDurezza",
        "uAltezza", "uRaggio", "uRivela", "uSpegni"]);
@@ -526,7 +534,7 @@
 
       var raggio = I.raggio * 0.55 * ss(I.raduraDa, I.raduraA, pr)
                  + I.raggio * 0.45 * ss(I.largaDa, I.largaA, pr)
-                 + (I.raggioFine - I.raggio) * ss(I.sostaA, 1.0, pr);
+                 + (I.raggioFine - I.raggio) * ss(I.sostaA, I.fineA, pr);
       /* netto il taglio, largo lo sbriciolamento: il contrario di una
          sfumatura, che darebbe una fascia di grigio */
       var morbido = 0.010 + raggio * 0.018;
@@ -557,6 +565,7 @@
         gl.uniform2f(lastra.u.uCentro, 0.5, 0.5);
         gl.uniform1f(lastra.u.uGiroY, giro);
         gl.uniform1f(lastra.u.uGiroX, -giro * 0.38);
+        gl.uniform1f(lastra.u.uSchermo, aspetto);
         gl.uniform1f(lastra.u.uFuga, 2.2);
         gl.uniform1f(lastra.u.uZ, (1 - posa) * 0.55);
         gl.uniform1i(lastra.u.uMappa, 1);
