@@ -43,7 +43,9 @@ cresce di intensita': i diamanti prendono la luce che gli arriva, si
 accendono e si gonfiano, e dove e' tanta saturano in bianco pieno, con un
 alone attorno. Il bianco non si allarga come una forma: si accende.
 
-Dentro quel bianco la stampa e' **scavata** nella carta: la parete dalla parte
+Dentro quel bianco la stampa e' **scavata** nella carta — le sagome del
+manifesto **tracciate** in curve (vedi sotto), piu' le pennellate del mare
+incise leggere: la parete dalla parte
 della luce getta un'ombra sul fondo, e il fondo e' un filo piu' scuro, quindi
 le sagome si leggono piene e non come un disegno a linee. Si scava a
 pressione (prima appena accennata, poi piu' profonda), si legge sempre tutta
@@ -58,10 +60,14 @@ in cima a `cape-dust.js`, sotto `lento*`, `luce*`, `pieno*` e `lastra*`.
 
 | file | cos'e' |
 |---|---|
+| `lastra.png` | **quella in pagina**: la quota, dalle sagome tracciate, col mare. Valore alto = piu' in fondo |
+| `lastra-gobba.png` | la pendenza del volume dentro le sagome, a un quarto di lato |
+| `lastra-nera.png` | la stessa, piatta, solo per guardarla |
+| `traccia.py` | rigenera le tre `lastra*` |
 | `stampa.png` | la quota della goffratura. Valore alto = piu' in fondo |
 | `stampa-gobba.png` | la PENDENZA del volume, gia' derivata, a un quarto di lato |
 | `stampa-nera.png` | la stampa piatta, se un domani serve senza rilievo |
-| `stampa-grana*.png` | le stesse tre, con la grana della stampa vera dentro le sagome. Non in pagina: in pagina c'e' la versione pulita |
+| `stampa-grana*.png` | le stesse tre, con la grana della stampa vera dentro le sagome. Non in pagina |
 | `stampa-src.jpg` | il manifesto sorgente |
 | `stampa.py` | pulisce il manifesto e rigenera le tre immagini |
 | `cape-rilievo.js` | il vecchio: due nomi e il surfista. Non piu' caricato |
@@ -75,9 +81,17 @@ Se le rigeneri, aggiorna quello SHA la' dentro.
 ## Cambiare il manifesto
 
 ```
-python3 stampa.py     # goffratura, gobba e stampa piatta
+python3 traccia.py    # la lastra in pagina: lastra*.png
+python3 stampa.py     # le versioni raster di prima: stampa*.png
 ```
-Serve `pillow`, `numpy`, `scipy`. Se cambi il file sorgente, cambia `SRC`.
+Serve `pillow`, `numpy`, `scipy`, e per `traccia.py` anche `potracer`. Se
+cambi il file sorgente, cambia `SRC` in `stampa.py`.
+
+**Perche' tracciata.** Il manifesto e' un JPG di 1179 px con i bordi mangiati
+della serigrafia: ingranditi e scavati diventano un tremolio che sembra un
+difetto di risoluzione. Lisciarli con un filtro arrotonda gli angoli e la
+scritta diventa un altro font. Tracciata in curve, invece, resta la stessa
+scritta: rettilinei dritti, angoli vivi, ridisegnata a 2400 px.
 
 Si incide **solo la scritta e i due surfisti**: `pulita()` toglie le
 pennellate del fondo e il bordo sporco, che in rilievo diventano rumore. Lo fa

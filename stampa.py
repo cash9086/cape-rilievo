@@ -64,6 +64,11 @@ def pulita(ink):
     pieno = ink > 0.6
     seduto = np.zeros_like(pieno); seduto[600:900, 380:760] = True
     pieno = np.where(seduto, ink > 0.8, pieno)
+    # la scritta e' nero pieno (0.85) stampato SOPRA pennellate grigie scure:
+    # a 0.6 le due S finali si fondevano con la pennellata sotto e uscivano
+    # deformate. Nella fascia della scritta la soglia sale.
+    scritta = np.zeros_like(pieno); scritta[175:470, 55:1120] = True
+    pieno = np.where(scritta, ink > 0.76, pieno)
 
     aperto = ndi.binary_opening(pieno, structure=disco(6))
     lab, n = ndi.label(aperto)
@@ -170,5 +175,6 @@ def scrivi(nome, grana=False):
              os.path.getsize(os.path.join(QUI, nome + '-nera.png')) // 1024))
     return W, H
 
-scrivi('stampa')
-scrivi('stampa-grana', grana=True)   # la stessa, con la grana della stampa vera
+if __name__ == '__main__':
+    scrivi('stampa')
+    scrivi('stampa-grana', grana=True)   # la stessa, con la grana della stampa vera
